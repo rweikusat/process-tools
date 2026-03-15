@@ -55,7 +55,7 @@ tmp/%.d: src/%.c
 	$(CC) -MM $< | perl -pe 's|$*\.o|$@|' >$@
 
 tmp/%.o: src/%.c tmp/%.d
-	$(CC) $(CFLAGS) -c -o $@ -fpic $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 bin/%: tmp/%.o
 	$(LD) -o $@ $^
