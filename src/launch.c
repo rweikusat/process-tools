@@ -9,6 +9,16 @@
 #include <unistd.h>
 
 /*  routines */
+static void sanitize_fds(void)
+{
+    int fd;
+
+    do
+        fd = open("/dev/null", O_RDWR, 0);
+    while (fd > 0 && fd < 3);
+    close(fd);
+}
+
 static void background(void)
 {
     switch (fork()) {
@@ -24,9 +34,24 @@ static void background(void)
     }
 }
 
+static void setup_std_fds(void)
+{
+    int fd;
+
+    close(0);
+    close(1);
+    close(2);
+
+    fd = open("/dev/null", O_RDWR, 0);
+    dup(fd);
+    dup(fd);
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
+    sanitize_fds();
+
     openlog("launch", LOG_PID | LOG_PERROR, LOG_USER);
 
     if (argc < 2) {
@@ -35,7 +60,10 @@ int main(int argc, char **argv)
     }
 
     background();
+    setup_std_fds();
 
-    syslog(LOG_NOTICE, "launching not implemented");
-    return 0;
+    ++argv;
+    execvp(*argv, argv);
+
+    return 1;
 }
