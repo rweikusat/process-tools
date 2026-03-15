@@ -4,21 +4,12 @@
 
 /*  includes */
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
 /*  routines */
-static void sanitize_fds(void)
-{
-    int fd;
-
-    do
-        fd = open("/dev/null", O_RDWR, 0);
-    while (fd > 0 && fd < 3);
-    close(fd);
-}
-
 static void background(void)
 {
     switch (fork()) {
@@ -32,6 +23,8 @@ static void background(void)
     default:
         exit(0);
     }
+
+    setsid();
 }
 
 static void setup_std_fds(void)
@@ -50,8 +43,6 @@ static void setup_std_fds(void)
 /*  main */
 int main(int argc, char **argv)
 {
-    sanitize_fds();
-
     openlog("launch", LOG_PID | LOG_PERROR, LOG_USER);
 
     if (argc < 2) {
@@ -65,5 +56,6 @@ int main(int argc, char **argv)
     ++argv;
     execvp(*argv, argv);
 
+    syslog(LOG_ERR, "execvp %s: %m(%d)", *argv, errno);
     return 1;
 }
