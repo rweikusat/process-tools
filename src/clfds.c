@@ -93,11 +93,18 @@ static void add_keeps(char *s, struct keep **keeps)
     *keeps = next;
 }
 
-static int in_keeps(int fd, struct keep *keeps)
+static int in_keeps(int fd, struct keep **keeps)
 {
-    while (keeps) {
-        if (keeps->fd == fd) return 1;
-        keeps = keeps->p;
+    struct keep **pk, *k;
+
+    pk = keeps;
+    while (k = *pk, k) {
+        if (k->fd == fd) {
+            *pk = k->p;
+            return 1;
+        }
+
+        pk = &k->p;
     }
 
     return 0;
@@ -120,7 +127,7 @@ static void close_fds(struct keep *keeps)
         if (*d_ent->d_name == '.') continue;
 
         fd = atoi(d_ent->d_name);
-        if (in_keeps(fd, keeps)) continue;
+        if (in_keeps(fd, &keeps)) continue;
 
         close(fd);
     }
