@@ -16,7 +16,7 @@ SRCS :=		$(shell ls src/*.c)
 OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
-PRGS :=		$(addprefix bin/, launch)
+PRGS :=		$(addprefix bin/, clfds launch)
 
 #**  CFLAGS
 #
