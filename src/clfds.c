@@ -20,6 +20,13 @@ static void usage(void)
     exit(1);
 }
 
+static int c2dg(unsigned c)
+{
+    c -= '0';
+    if (c < 10) return c;
+    return -1;
+}
+
 static void add_keeps(char *s, struct keep **keeps)
 {
     struct keep *next, *k;
