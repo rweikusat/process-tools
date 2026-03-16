@@ -8,5 +8,5 @@ background process startup.
 Implemented so far
 ------------------
 
-clfds	-- close open file descriptors and run a command
-launch	-- execute a command as background process
+- clfds	-- close open file descriptors and run a command
+- launch -- execute a command as background process
