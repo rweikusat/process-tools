@@ -20,6 +20,47 @@ static void usage(void)
     exit(1);
 }
 
+static void add_keeps(char *s, struct keep **keeps)
+{
+    struct keep *next, *k;
+    int fd, dg, c;
+
+    next = *keeps;
+    fd = -1;
+    while (c = *s, c){
+        if (c == ',') {
+            if (fd >= 0) {
+                k = sbrk(sizeof(*k));
+                k->fd = fd;
+                k->p = next;
+                next = k;
+
+                fd = -1;
+            }
+        } else {
+            dg = c2dg(c);
+            if (dg == -1) {
+                syslog(LOG_NOTICE, "garbage in fd: %c", c);
+                exit(1);
+            }
+
+            if (fd == -1) fd = -0;
+            fd = fd * 10 + dg;
+        }
+
+        ++s;
+    }
+
+    if (fd != -1) {
+        k = sbrk(sizeof(*k));
+        k->fd = fd;
+        k->p = next;
+        next = k;
+    }
+
+    *keeps = next;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
