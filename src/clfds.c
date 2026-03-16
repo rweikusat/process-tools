@@ -20,6 +20,18 @@ struct keep  {
 #define die(sysc) die_(__func__, sysc)
 #define FDS	"/proc/self/fd"
 
+/*  variables */
+static struct keep std_keeps[3] = {
+    {
+        .fd = 0,
+        .p = std_keeps + 1},
+    {
+        .fd = 1,
+        .p = std_keeps + 2 },
+    {
+        .fd = 2 }
+};
+
 /*   routines */
 static void usage(void)
 {
@@ -27,7 +39,7 @@ static void usage(void)
     exit(1);
 }
 
-static void die(char const *fnc, char *sysc)
+static void die_(char const *fnc, char *sysc)
 {
     syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
@@ -87,23 +99,27 @@ static int in_keeps(int fd, struct keep *keeps)
         if (keeps->fd == fd) return 1;
         keeps = keeps->p;
     }
+
+    return 0;
 }
 
 static void close_fds(struct keep *keeps)
 {
     DIR *d;
     struct dirent *d_ent;
-    int dfd, fd;
+    struct keep k;
+    int fd;
 
     d = opendir(FDS);
     if (!d) die("opendir");
-    dfd = dirfd(d);
+    k.fd = dirfd(d);
+    k.p = keeps;
+    keeps = &k;
 
     while (d_ent = readdir(d), d_ent) {
         if (*d_ent->d_name == '.') continue;
 
         fd = atoi(d_ent->d_name);
-        if (fd == dfd) continue;
         if (in_keeps(fd, keeps)) continue;
 
         close(fd);
@@ -120,8 +136,8 @@ int main(int argc, char **argv)
 
     openlog("clfds", LOG_PID | LOG_PERROR, LOG_USER);
 
-    keep = NULL;
-    while (c = getopt(argc, argv, "k:"), c != -1)
+    keeps = std_keeps;
+    while (c = getopt(argc, argv, "+k:"), c != -1)
         switch (c) {
         case 'k':
             add_keeps(optarg, &keeps);
