@@ -13,6 +13,12 @@
 #define die(sysc) die_(__func__, sysc)
 
 /*  routines */
+static void usage(void)
+{
+    syslog(LOG_NOTICE, "Usage: launch [-n <name>] <cmd> <arg>*");
+    exit(1);
+}
+
 static void die_(char const *fnc, char *sysc)
 {
     syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
@@ -54,18 +60,30 @@ static void setup_std_fds(void)
 /*  main */
 int main(int argc, char **argv)
 {
+    char *name;
+    int c;
+
     openlog("launch", LOG_PID | LOG_PERROR, LOG_USER);
 
-    if (argc < 2) {
-        syslog(LOG_WARNING, "Usage: launch <command> <arg>*");
-        exit(1);
-    }
+    name = NULL;
+    while (c = getopt(argc, argv, "+n:"), c != -1)
+        switch (c) {
+        case 'n':
+            name = optarg;
+            break;
+
+        default:
+            usage();
+        }
+
+    argv += optind;
+    if (!*argv) usage();
+    if (!name) name = *argv;
 
     background();
     setup_std_fds();
 
-    ++argv;
-    syslog(LOG_NOTICE, "exec '%s'", *argv);
+    syslog(LOG_NOTICE, "exec '%s'", name);
     execvp(*argv, argv);
 
     die("execvp");
