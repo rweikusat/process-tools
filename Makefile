@@ -21,7 +21,7 @@ PRGS :=		$(addprefix bin/, clfds launch)
 #**  CFLAGS
 #
 CFLAGS :=	-g -W -Wall -Wno-pointer-sign -Wno-implicit-fallthrough \
-	-fno-inline-functions -fno-inline-small-functions
+	-fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
 
 ifndef DEV
 CFLAGS :=	-O2 $(CFLAGS)
