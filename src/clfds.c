@@ -45,7 +45,7 @@ static void die_(char const *fnc, char *sysc)
     exit(1);
 }
 
-static int c2dg(unsigned c)
+static inline int c2dg(unsigned c)
 {
     c -= '0';
     if (c < 10) return c;
