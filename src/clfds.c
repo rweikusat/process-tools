@@ -4,6 +4,8 @@
 */
 
 /*  includes */
+#include <dirent.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -14,10 +16,20 @@ struct keep  {
     int fd;
 };
 
+/*  macros */
+#define die(sysc) die_(__func__, sysc)
+#define FDS	"/proc/self/fd"
+
 /*   routines */
 static void usage(void)
 {
     syslog(LOG_NOTICE, "Usage: clfds [-k <fd>[,<fd>]* <cmd> <args>*");
+    exit(1);
+}
+
+static void die(char const *fnc, char *sysc)
+{
+    syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
 }
 
@@ -69,10 +81,33 @@ static void add_keeps(char *s, struct keep **keeps)
     *keeps = next;
 }
 
+static void close_fds(struct keep *keeps)
+{
+    DIR *d;
+    struct dirent *d_ent;
+    int dfd, fd;
+
+    d = opendir(FDS);
+    if (!d) die("opendir");
+    dfd = dirfd(d);
+
+    while (d_ent = readdir(d), d_ent) {
+        if (*d_ent->d_name == '.') continue;
+
+        fd = atoi(d_ent->d_name);
+        if (fd == dfd) continue;
+        if (in_keeps(fd, keeps)) continue;
+
+        close(fd);
+    }
+
+    closedir(d);
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
-    struct keep *keep;
+    struct keep *keeps;
     int c;
 
     openlog("clfds", LOG_PID | LOG_PERROR, LOG_USER);
@@ -81,7 +116,7 @@ int main(int argc, char **argv)
     while (c = getopt(argc, argv, "k:"), c != -1)
         switch (c) {
         case 'k':
-            add_keeps(optarg, &keep);
+            add_keeps(optarg, &keeps);
             break;
 
         default:
@@ -91,5 +126,9 @@ int main(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
 
+    close_fds(keeps);
+    execvp(*argv, argv);
+
+    die("execvp");
     return 0;
 }
