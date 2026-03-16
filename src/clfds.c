@@ -81,6 +81,14 @@ static void add_keeps(char *s, struct keep **keeps)
     *keeps = next;
 }
 
+static int in_keeps(int fd, struct keep *keeps)
+{
+    while (keeps) {
+        if (keeps->fd == fd) return 1;
+        keeps = keeps->p;
+    }
+}
+
 static void close_fds(struct keep *keeps)
 {
     DIR *d;
