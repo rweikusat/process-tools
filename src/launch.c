@@ -9,13 +9,21 @@
 #include <syslog.h>
 #include <unistd.h>
 
+/*  macros */
+#define die(sysc) die_(__func__, sysc)
+
 /*  routines */
+static void die_(char const *fnc, char *sysc)
+{
+    syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
+    exit(1);
+}
+
 static void background(void)
 {
     switch (fork()) {
     case -1:
-        syslog(LOG_ERR, "%s: fork: %m(%d)", __func__, errno);
-        exit(1);
+        die("fork");
 
     case 0:
         break;
@@ -29,15 +37,18 @@ static void background(void)
 
 static void setup_std_fds(void)
 {
-    int fd;
+    int fd, rc;
 
     close(0);
     close(1);
     close(2);
 
     fd = open("/dev/null", O_RDWR, 0);
-    dup(fd);
-    dup(fd);
+    if (fd == -1) die("open /dev/null");
+
+    rc = dup(fd);
+    if (rc != -1) rc = dup(fd);
+    if (rc == -1) die("dup");
 }
 
 /*  main */
@@ -54,8 +65,9 @@ int main(int argc, char **argv)
     setup_std_fds();
 
     ++argv;
+    syslog(LOG_NOTICE, "exec '%s'", *argv);
     execvp(*argv, argv);
 
-    syslog(LOG_ERR, "execvp %s: %m(%d)", *argv, errno);
+    die("execvp");
     return 1;
 }
