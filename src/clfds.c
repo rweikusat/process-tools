@@ -4,6 +4,7 @@
 */
 
 /*  includes */
+#include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -88,7 +89,7 @@ int main(int argc, char **argv)
         }
 
     argv += optind;
-    if (!argv) usage();
+    if (!*argv) usage();
 
     return 0;
 }
