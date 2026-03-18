@@ -3,10 +3,8 @@
 */
 
 /*  includes */
-//#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
-//#include <syslog.h>
 #include <unistd.h>
 
 #include "diag.h"
