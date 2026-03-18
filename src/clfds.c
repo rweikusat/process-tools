@@ -52,21 +52,25 @@ static inline int c2dg(unsigned c)
     return -1;
 }
 
+static void add_keep(int fd, struct keep **keeps)
+{
+    struct keep *k;
+
+    k = sbrk(sizeof(*k));
+    k->fd = fd;
+    k->p = *keeps;
+    *keeps = k;
+}
+
 static void add_keeps(char *s, struct keep **keeps)
 {
-    struct keep *next, *k;
     int fd, dg, c;
 
-    next = *keeps;
     fd = -1;
     while (c = *s, c){
         if (c == ',') {
-            if (fd >= 0) {
-                k = sbrk(sizeof(*k));
-                k->fd = fd;
-                k->p = next;
-                next = k;
-
+            if (fd != -1) {
+                add_keep(fd, keeps);
                 fd = -1;
             }
         } else {
@@ -83,14 +87,7 @@ static void add_keeps(char *s, struct keep **keeps)
         ++s;
     }
 
-    if (fd != -1) {
-        k = sbrk(sizeof(*k));
-        k->fd = fd;
-        k->p = next;
-        next = k;
-    }
-
-    *keeps = next;
+    if (fd != -1) add_keep(fd, keeps);
 }
 
 static int in_keeps(int fd, struct keep **keeps)
