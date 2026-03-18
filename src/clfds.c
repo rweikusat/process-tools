@@ -76,7 +76,7 @@ static void add_keeps(char *s, struct keep **keeps)
                 exit(1);
             }
 
-            if (fd == -1) fd = -0;
+            if (fd == -1) fd = 0;
             fd = fd * 10 + dg;
         }
 
