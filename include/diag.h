@@ -10,7 +10,7 @@
 #include <syslog.h>
 
 /*  macros */
-define die(sysc) die_(__func__, sysc)
+#define die(sysc) die_(__func__, sysc)
 
 /*  routines */
 static void init_diag(char *name)
@@ -18,7 +18,7 @@ static void init_diag(char *name)
     openlog(name, LOG_PID | LOG_PERROR, LOG_USER);
 }
 
-static die_(char const *fnc, char const *sysc)
+static void die_(char const *fnc, char const *sysc)
 {
     syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
