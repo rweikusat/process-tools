@@ -5,10 +5,10 @@
 
 /*  includes */
 #include <dirent.h>
-#include <errno.h>
 #include <stdlib.h>
-#include <syslog.h>
 #include <unistd.h>
+
+#include "diag.h"
 
 /*  types */
 struct keep  {
@@ -17,7 +17,6 @@ struct keep  {
 };
 
 /*  macros */
-#define die(sysc) die_(__func__, sysc)
 #define FDS	"/proc/self/fd"
 
 /*  variables */
@@ -36,12 +35,6 @@ static struct keep std_keeps[3] = {
 static void usage(void)
 {
     syslog(LOG_NOTICE, "Usage: clfds [-k <fd>[,<fd>]* <cmd> <args>*");
-    exit(1);
-}
-
-static void die_(char const *fnc, char *sysc)
-{
-    syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
 }
 
@@ -138,7 +131,7 @@ int main(int argc, char **argv)
     struct keep *keeps;
     int c;
 
-    openlog("clfds", LOG_PID | LOG_PERROR, LOG_USER);
+    init_diag("clfds");
 
     keeps = std_keeps;
     while (c = getopt(argc, argv, "+k:"), c != -1)
