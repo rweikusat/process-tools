@@ -3,25 +3,18 @@
 */
 
 /*  includes */
-#include <errno.h>
+//#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <syslog.h>
+//#include <syslog.h>
 #include <unistd.h>
 
-/*  macros */
-#define die(sysc) die_(__func__, sysc)
+#include "diag.h"
 
 /*  routines */
 static void usage(void)
 {
     syslog(LOG_NOTICE, "Usage: launch [-n <name>] <cmd> <arg>*");
-    exit(1);
-}
-
-static void die_(char const *fnc, char *sysc)
-{
-    syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
 }
 
@@ -63,7 +56,7 @@ int main(int argc, char **argv)
     char *name;
     int c;
 
-    openlog("launch", LOG_PID | LOG_PERROR, LOG_USER);
+    init_diag("launch");
 
     name = NULL;
     while (c = getopt(argc, argv, "+n:"), c != -1)
