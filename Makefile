@@ -16,7 +16,8 @@ SRCS :=		$(shell ls src/*.c)
 OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
-PRGS :=		$(addprefix bin/, clfds launch)
+D_PRGS :=		$(addprefix bin/, clfds launch)
+PRGS :=			$(D_PRGS) $(addprefix bin/, sane-env)
 
 #**  CFLAGS
 #
@@ -48,6 +49,10 @@ clean:
 	-rm tmp/*.o tmp/*.d
 	-rm bin/*
 
+bin/sane-env: tmp/sane_env.o
+
+$(D_PRGS) : bin/% : tmp/%.o
+
 include $(DEPS)
 
 #*  %-rules
@@ -58,5 +63,5 @@ tmp/%.d: src/%.c
 tmp/%.o: src/%.c tmp/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-bin/%: tmp/%.o
+bin/%:
 	$(LD) -o $@ $^
