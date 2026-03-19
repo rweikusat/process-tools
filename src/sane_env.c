@@ -2,8 +2,11 @@
   sanitize environment
 */
 
+#define _GNU_SOURCE
+
 /*  includes */
 #include <alloca.h>
+#include <pwd.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -95,22 +98,22 @@ static void set_nv(char *name, size_t n_len, char *v)
     vars = var;
     ++n_vars;
 
-    var->v = sbrk(n_len + 1 + strlen(val) + 1);
+    var->v = sbrk(n_len + 1 + strlen(v) + 1);
     memcpy(var->v, name, n_len);
     var->v[n_len] = '=';
-    strcpy(var->v + n_len + 1, val);
+    strcpy(var->v + n_len + 1, v);
 }
 
 static void keep_var(char *name)
 {
     size_t n_len;
-    char *val;
+    char *v;
 
     n_len = strlen(name);
     if (!n_len) return;
 
-    val = getenv(name);
-    if (!val) return;
+    v = getenv(name);
+    if (!v) return;
 
     do_wanted(name);
     set_nv(name, n_len, v);
@@ -150,7 +153,7 @@ static void do_uvars(void)
     uid = getuid();
     pwd = getpwuid(uid);
     if (!pwd) {
-        syslog(LOG_WARN, "found no pwd for uid %u", (unsigned)uid);
+        syslog(LOG_WARNING, "found no pwd for uid %u", (unsigned)uid);
         return;
     }
 
@@ -162,7 +165,7 @@ static void do_uvars(void)
 /*  main */
 int main(int argc, char **argv)
 {
-    char **env, *e;
+    char **env, **e;
     int c;
 
     init_diag("sane-env");
@@ -189,7 +192,7 @@ int main(int argc, char **argv)
 
     e = env = alloca(sizeof(*env) * n_vars + 1);
     while (vars) {
-        *e++ = vars->c;
+        *e++ = vars->v;
         vars = vars->p;
     }
     *e = NULL;
