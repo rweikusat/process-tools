@@ -3,9 +3,11 @@
 */
 
 /*  includes */
-#include "diag.h"
+#include <alloca.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "diag.h"
 
 /*  types */
 struct want_var {
@@ -93,6 +95,31 @@ static void keep_var(char *name)
     memcpy(var->v, name, n_len);
     var->v[n_len] = '=';
     strcpy(v->v + n_len + 1, val);
+}
+
+static void set_var(char *v)
+{
+    char *name, *n_end;
+    struct var *var;
+    size_t n_len;
+
+    n_end = strchr(v, '=');
+    if (!n_end) {
+        syslog(LOG_NOTICE, "invalid set: must be name=value, not %s",
+               v);
+        exit(1);
+    }
+
+    n_len = n_end - name;
+    name = alloca(n_len + 1);
+    memcpy(name, v, n_len);
+    name[n_len] = 0;
+    do_wanted(name);
+
+    var = sbrk(sizeof(*var));
+    var->p = vars;
+    vars = var;
+    var->v = v;
 }
 
 /*  main */
