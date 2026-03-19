@@ -55,6 +55,22 @@ static void usage(void)
     exit(1);
 }
 
+static void do_wanted(char *name)
+{
+    unsigned ndx;
+
+    ndx = 0;
+    while (ndx < n_wanted) {
+        if (strcmp(name, wanted[ndx].name) != 0) continue;
+
+        have |= wanted[ndx].flag;
+
+        --n_wanted;
+        wanted[ndx] = wanted[n_wanted];
+        break;
+    }
+}
+
 static void keep_var(char *name)
 {
     struct var *var;
