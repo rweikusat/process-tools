@@ -9,6 +9,9 @@
 
 #include "diag.h"
 
+/*  macros */
+#define DEF_PATH	"PATH=/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
+
 /*  types */
 struct want_var {
     char *name;
@@ -25,7 +28,9 @@ enum {
     F_HOME =		1,
     F_LOGNAME =		2,
     F_PATH =		4,
-    F_USER =		8
+    F_USER =		8,
+
+    F_UVARS =		F_HOME | F_LOGNAME | F_USER
 };
 
 /*  variables */
@@ -130,6 +135,7 @@ static void set_var(char *v)
 /*  main */
 int main(int argc, char **argv)
 {
+    char **env, *e;
     int c;
 
     init_diag("sane-env");
@@ -147,6 +153,22 @@ int main(int argc, char **argv)
         default:
             usage();
         }
+
+    argv += optind;
+    if (!*argv)
+
+    if (!(have & F_PATH)) set_var(DEF_PATH);
+    if (!((have & F_UVARS) == F_UVARS)) do_uvars();
+
+    e = env = alloca(sizeof(*env) * n_vars + 1);
+    while (vars) {
+        *e++ = vars->c;
+        vars = vars->p;
+    }
+    *e = NULL;
+
+    execvpe(*argv, argv, env);
+    die("execvpe");
 
     return 0;
 }
