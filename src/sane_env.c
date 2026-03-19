@@ -127,8 +127,12 @@ static void set_var(char *v)
 
     n_end = strchr(v, '=');
     if (!n_end) {
-        syslog(LOG_NOTICE, "invalid set: must be name=value, not %s",
+        syslog(LOG_ERR, "invalid set: must be name=value, not %s",
                v);
+        exit(1);
+    }
+    if (n_end == v) {
+        syslog(LOG_ERR, "empty name in -s");
         exit(1);
     }
 
