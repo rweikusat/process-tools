@@ -10,3 +10,5 @@ Implemented so far
 
 - clfds	-- close open file descriptors and run a command
 - launch -- execute a command as background process
+- sane-env -- execute a command with a sanitized environment
+
