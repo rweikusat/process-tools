@@ -63,13 +63,15 @@ static void do_wanted(char *name)
 
     ndx = 0;
     while (ndx < n_wanted) {
-        if (strcmp(name, wanted[ndx].name) != 0) continue;
+        if (strcmp(name, wanted[ndx].name) == 0) {
+            have |= wanted[ndx].flag;
 
-        have |= wanted[ndx].flag;
+            --n_wanted;
+            wanted[ndx] = wanted[n_wanted];
+            break;
+        }
 
-        --n_wanted;
-        wanted[ndx] = wanted[n_wanted];
-        break;
+        ++ndx;
     }
 }
 
