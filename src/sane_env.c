@@ -94,7 +94,7 @@ static void keep_var(char *name)
     var->v = sbrk(n_len + 1 + strlen(val) + 1);
     memcpy(var->v, name, n_len);
     var->v[n_len] = '=';
-    strcpy(v->v + n_len + 1, val);
+    strcpy(var->v + n_len + 1, val);
 }
 
 static void set_var(char *v)
@@ -110,7 +110,7 @@ static void set_var(char *v)
         exit(1);
     }
 
-    n_len = n_end - name;
+    n_len = n_end - v;
     name = alloca(n_len + 1);
     memcpy(name, v, n_len);
     name[n_len] = 0;
