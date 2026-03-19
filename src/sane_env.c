@@ -10,7 +10,12 @@
 #include "diag.h"
 
 /*  macros */
-#define DEF_PATH	"PATH=/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
+#define DEF_PATH	"/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
+#define HOME		"HOME"
+#define LOGNAME		"LOGNAME"
+#define PATH		"PATH"
+#define USER		"USER"
+#define S_LEN(s)	(sizeof(s) - 1)
 
 /*  types */
 struct want_var {
@@ -36,16 +41,16 @@ enum {
 /*  variables */
 static struct want_var wanted[] = {
     {
-        .name =		"HOME",
+        .name =		HOME,
         .flag =		F_HOME },
     {
-        .name =		"LOGNAME",
+        .name =		LOGNAME,
         .flag =		F_LOGNAME },
     {
-        .name =		"PATH",
+        .name =		PATH,
         .flag =		F_PATH },
     {
-        .name =		"USER",
+        .name =		USER,
         .flag =		F_USER }
 };
 
@@ -81,19 +86,9 @@ static void do_wanted(char *name)
     }
 }
 
-static void keep_var(char *name)
+static void set_nv(char *name, size_t n_len, char *v)
 {
     struct var *var;
-    size_t n_len;
-    char *val;
-
-    n_len = strlen(name);
-    if (!n_len) return;
-
-    val = getenv(name);
-    if (!val) return;
-
-    do_wanted(name);
 
     var = sbrk(sizeof(*var));
     var->p = vars;
@@ -104,6 +99,21 @@ static void keep_var(char *name)
     memcpy(var->v, name, n_len);
     var->v[n_len] = '=';
     strcpy(var->v + n_len + 1, val);
+}
+
+static void keep_var(char *name)
+{
+    size_t n_len;
+    char *val;
+
+    n_len = strlen(name);
+    if (!n_len) return;
+
+    val = getenv(name);
+    if (!val) return;
+
+    do_wanted(name);
+    set_nv(name, n_len, v);
 }
 
 static void set_var(char *v)
@@ -132,6 +142,23 @@ static void set_var(char *v)
     ++n_vars;
 }
 
+static void do_uvars(void)
+{
+    struct passwd *pwd;
+    uid_t uid;
+
+    uid = getuid();
+    pwd = getpwuid(uid);
+    if (!pwd) {
+        syslog(LOG_WARN, "found no pwd for uid %u", (unsigned)uid);
+        return;
+    }
+
+    if (!(have & F_USER)) set_nv(USER, S_LEN(USER), pwd->pw_name);
+    if (!(have & F_LOGNAME)) set_nv(LOGNAME, S_LEN(LOGNAME), pwd->pw_name);
+    if (!(have & F_HOME)) set_nv(HOME, S_LEN(HOME), pwd->pw_dir);
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -155,9 +182,9 @@ int main(int argc, char **argv)
         }
 
     argv += optind;
-    if (!*argv)
+    if (!*argv) usage();
 
-    if (!(have & F_PATH)) set_var(DEF_PATH);
+    if (!(have & F_PATH)) set_nv(PATH, S_LEN(PATH), DEF_PATH);
     if (!((have & F_UVARS) == F_UVARS)) do_uvars();
 
     e = env = alloca(sizeof(*env) * n_vars + 1);
