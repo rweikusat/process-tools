@@ -47,6 +47,7 @@ static struct want_var wanted[] = {
 static unsigned n_wanted = sizeof(wanted)/sizeof(*wanted);
 static unsigned have;
 static struct var *vars;
+static size_t n_vars;
 
 /*  routines */
 static void usage(void)
@@ -92,6 +93,7 @@ static void keep_var(char *name)
     var = sbrk(sizeof(*var));
     var->p = vars;
     vars = var;
+    ++n_vars;
 
     var->v = sbrk(n_len + 1 + strlen(val) + 1);
     memcpy(var->v, name, n_len);
@@ -122,6 +124,7 @@ static void set_var(char *v)
     var->p = vars;
     vars = var;
     var->v = v;
+    ++n_vars;
 }
 
 /*  main */
