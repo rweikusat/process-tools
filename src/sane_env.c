@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     int c;
 
     init_diag("sane-env");
-    while (c = getopt(argc, argv, "k:s:"), c != -1)
+    while (c = getopt(argc, argv, "+k:s:"), c != -1)
         switch (c) {
         case 'k':
             syslog(LOG_NOTICE, "keep %s", optarg);
