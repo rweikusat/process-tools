@@ -2,8 +2,6 @@
   sanitize environment
 */
 
-#define _GNU_SOURCE
-
 /*  includes */
 #include <alloca.h>
 #include <pwd.h>
@@ -62,6 +60,8 @@ static unsigned n_wanted = sizeof(wanted)/sizeof(*wanted);
 static unsigned have;
 static struct var *vars;
 static size_t n_vars;
+
+extern char **environ;
 
 /*  routines */
 static void usage(void)
@@ -170,7 +170,7 @@ static void do_uvars(void)
 /*  main */
 int main(int argc, char **argv)
 {
-    char **env, **e;
+    char **e;
     int c;
 
     init_diag("sane-env");
@@ -195,15 +195,15 @@ int main(int argc, char **argv)
     if (!(have & F_PATH)) set_nv(PATH, S_LEN(PATH), DEF_PATH);
     if (!((have & F_UVARS) == F_UVARS)) do_uvars();
 
-    e = env = alloca(sizeof(*env) * n_vars + 1);
+    e = environ = alloca(sizeof(*e) * n_vars + 1);
     while (vars) {
         *e++ = vars->v;
         vars = vars->p;
     }
     *e = NULL;
 
-    execvpe(*argv, argv, env);
-    die("execvpe");
+    execvp(*argv, argv);
+    die("execvp");
 
     return 0;
 }
