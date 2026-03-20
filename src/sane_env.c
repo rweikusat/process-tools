@@ -90,19 +90,29 @@ static void do_wanted(char *name)
     }
 }
 
-static void set_nv(char *name, size_t n_len, char *v)
+static void set_v(char *v)
 {
     struct var *var;
 
     var = alloc(sizeof(*var));
+    var->v = v;
+
     var->p = vars;
     vars = var;
-    ++n_vars;
 
-    var->v = alloc(n_len + 1 + strlen(v) + 1);
-    memcpy(var->v, name, n_len);
-    var->v[n_len] = '=';
-    strcpy(var->v + n_len + 1, v);
+    ++n_vars;
+}
+
+static void set_nv(char *name, size_t n_len, char *val)
+{
+    char *v;
+
+    v = alloc(n_len + 1 + strlen(val) + 1);
+    memcpy(v, name, n_len);
+    v[n_len] = '=';
+    strcpy(v + n_len + 1, val);
+
+    set_v(v);
 }
 
 static void keep_var(char *name)
@@ -123,7 +133,6 @@ static void keep_var(char *name)
 static void set_var(char *v)
 {
     char *name, *n_end;
-    struct var *var;
     size_t n_len;
 
     n_end = strchr(v, '=');
@@ -143,11 +152,7 @@ static void set_var(char *v)
     name[n_len] = 0;
     do_wanted(name);
 
-    var = alloc(sizeof(*var));
-    var->p = vars;
-    vars = var;
-    var->v = v;
-    ++n_vars;
+    set_v(v);
 }
 
 static void do_uvars(void)
