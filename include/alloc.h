@@ -19,4 +19,5 @@ static void *alloc(size_t sz)
     return sbrk(sz);
 }
 
+#undef PTR_SZ
 #endif
