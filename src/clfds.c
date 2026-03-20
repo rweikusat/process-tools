@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "alloc.h"
 #include "diag.h"
 
 /*  types */
@@ -49,7 +50,7 @@ static void add_keep(int fd, struct keep **keeps)
 {
     struct keep *k;
 
-    k = sbrk(sizeof(*k));
+    k = alloc(sizeof(*k));
     k->fd = fd;
     k->p = *keeps;
     *keeps = k;
