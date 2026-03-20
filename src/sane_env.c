@@ -115,19 +115,38 @@ static void set_nv(char *name, size_t n_len, char *val)
     set_v(v);
 }
 
+static char *search_env(char *n, size_t n_len)
+{
+    /* avoid 'fancy' getenvs possibly allocating memory */
+    char **env, *e;
+
+    env = environ;
+    while (e = *env, e) {
+        if (strncmp(n, e, n_len) == 0) return e;
+        ++env;
+    }
+
+    return NULL;
+}
+
 static void keep_var(char *name)
 {
     size_t n_len;
-    char *v;
+    char *n, *v;
 
     n_len = strlen(name);
     if (!n_len) return;
 
-    v = getenv(name);
+    n = alloca(n_len + 2);
+    memcpy(n, name, n_len);
+    n[n_len] = '=';
+    n[++n_len] = 0;
+
+    v = search_env(n, n_len);
     if (!v) return;
 
     do_wanted(name);
-    set_nv(name, n_len, v);
+    set_v(v);
 }
 
 static void set_var(char *v)
