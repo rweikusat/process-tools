@@ -12,7 +12,7 @@
 #include "diag.h"
 
 /*  macros */
-#define DEF_PATH	"/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
+#define DEF_PATH	"PATH=/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin"
 #define HOME		"HOME"
 #define LOGNAME		"LOGNAME"
 #define PATH		"PATH"
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
 
-    if (!(have & F_PATH)) set_nv(PATH, S_LEN(PATH), DEF_PATH);
+    if (!(have & F_PATH)) set_v(DEF_PATH);
     if (!((have & F_UVARS) == F_UVARS)) do_uvars();
 
     e = environ = alloca(sizeof(*e) * n_vars + 1);
