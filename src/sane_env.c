@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "alloc.h"
 #include "diag.h"
 
 /*  macros */
@@ -93,12 +94,12 @@ static void set_nv(char *name, size_t n_len, char *v)
 {
     struct var *var;
 
-    var = sbrk(sizeof(*var));
+    var = alloc(sizeof(*var));
     var->p = vars;
     vars = var;
     ++n_vars;
 
-    var->v = sbrk(n_len + 1 + strlen(v) + 1);
+    var->v = alloc(n_len + 1 + strlen(v) + 1);
     memcpy(var->v, name, n_len);
     var->v[n_len] = '=';
     strcpy(var->v + n_len + 1, v);
@@ -142,7 +143,7 @@ static void set_var(char *v)
     name[n_len] = 0;
     do_wanted(name);
 
-    var = sbrk(sizeof(*var));
+    var = alloc(sizeof(*var));
     var->p = vars;
     vars = var;
     var->v = v;
