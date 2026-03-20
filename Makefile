@@ -17,7 +17,7 @@ OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
 D_PRGS :=		$(addprefix bin/, clfds launch)
-PRGS :=			$(D_PRGS) $(addprefix bin/, sane-env)
+PRGS :=			$(D_PRGS) $(addprefix bin/, ch-dir sane-env)
 
 #**  CFLAGS
 #
@@ -49,6 +49,7 @@ clean:
 	-rm tmp/*.o tmp/*.d
 	-rm bin/*
 
+bin/ch-dir: tmp/ch_dir.o
 bin/sane-env: tmp/sane_env.o
 
 $(D_PRGS) : bin/% : tmp/%.o
