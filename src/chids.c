@@ -10,7 +10,7 @@
 /*  routines */
 static void usage(void)
 {
-    syslog(LOG_NOTICE, "Usage: chids [-g <group>] [-u <user>]");
+    syslog(LOG_NOTICE, "Usage: chids [-g <group>] [-u <user>] <cmd> <arg>*");
     exit(1);
 }
 
@@ -36,11 +36,6 @@ int main(int argc, char **argv)
         default:
             usage();
         }
-
-    if (!(user || group)) {
-        syslog(LOG_NOTICE, "either -u or -g must be provided");
-        exit(1);
-    }
 
     argv += optind;
     if (!*argv) usage();
