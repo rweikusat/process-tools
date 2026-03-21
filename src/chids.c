@@ -24,24 +24,36 @@ static void change_gid(char *group)
 
     grp = getgrnam(group);
     if (grp) gid = grp->gr_gid;
-    else grp = atoi(group);
+    else gid = atoi(group);
 
     rc = setgid(gid);
     if (rc == -1) die("setgid");
+
+    setgroups(0, NULL);
 }
 
-static void change_uid(char *user)
+static void change_uid(char *user, char *group)
 {
     struct passwd *pwd;
     uid_t uid;
     int rc;
 
     pwd = getpwnam(user);
-    if (pwd) uid = pwd->pw_uid;
-    else uid = atoi(user);
+    if (pwd) {
+        uid = pwd->pw_uid;
+
+        if (!group) {
+            rc = setgid(pwd->pw_gid);
+            if (rc == -1) die("setgid");
+
+            rc = initgroups(user, pwd->pw_gid);
+            if (rc == -1) die("initgroups");
+        }
+    } else
+        uid = atoi(user);
 
     rc = setuid(uid);
-    if (rc == -1) die("setuid")
+    if (rc == -1) die("setuid");
 }
 
 /*  main */
@@ -71,7 +83,7 @@ int main(int argc, char **argv)
     if (!*argv) usage();
 
     if (group) change_gid(group);
-    if (user) change_uid(user);
+    if (user) change_uid(user, group);
     execvp(*argv, argv);
 
     die("execvp");
