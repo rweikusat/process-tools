@@ -16,8 +16,15 @@ SRCS :=		$(shell ls src/*.c)
 OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
-D_PRGS :=		$(addprefix bin/, clfds launch)
-PRGS :=			$(D_PRGS) $(addprefix bin/, ch-dir sane-env)
+D_PRGS :=		$(addprefix bin/, \
+	clfds \
+	launch \
+)
+
+PRGS :=			$(D_PRGS) $(addprefix bin/, \
+	ch-dir \
+	sane-env \
+)
 
 #**  CFLAGS
 #
