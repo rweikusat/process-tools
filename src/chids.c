@@ -40,5 +40,10 @@ int main(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
 
+    if (group) change_gid(group);
+    if (user) change_uid(user);
+    execvp(*argv, argv);
+
+    die("execvp");
     return 0;
 }
