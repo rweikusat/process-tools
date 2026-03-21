@@ -17,6 +17,7 @@ OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
 D_PRGS :=		$(addprefix bin/, \
+	chids \
 	clfds \
 	launch \
 )
