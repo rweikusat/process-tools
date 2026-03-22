@@ -42,6 +42,7 @@ static void change_gid(char *group)
 static gid_t gid_for(struct substr *ss)
 {
     struct group *grp;
+    gid_t gid;
 
     if (ss->s == ss->e) return -1;
 
