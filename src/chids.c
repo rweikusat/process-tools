@@ -66,6 +66,7 @@ static void change_suppl(char *suppl)
     subs = alloca(sizeof(*subs));
     subs->p = NULL;
     subs->s = suppl;
+    subs->e = NULL;
 
     next = NULL;
     n_suppl = 1;
@@ -74,6 +75,7 @@ static void change_suppl(char *suppl)
         if (next) {
             next->p = subs;
             next->s = suppl;
+            next->e = NULL;
             subs = next;
 
             next = NULL;
@@ -87,6 +89,7 @@ static void change_suppl(char *suppl)
 
         ++suppl;
     }
+    if (!subs->e) subs->e = suppl;
 
     g = gids = alloca(sizeof(*gids) * n_suppl);
     while (subs) {
