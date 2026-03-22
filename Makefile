@@ -34,6 +34,7 @@ CFLAGS := \
 	-W \
 	-Wall \
 	-Wno-pointer-sign \
+	-Wno-sign-compare \
 	-Wno-implicit-fallthrough \
 	-fno-inline-functions \
 	-fno-inline-small-functions \
