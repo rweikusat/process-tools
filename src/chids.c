@@ -74,11 +74,12 @@ static void change_suppl(char *suppl)
     while (c = *suppl, c) {
         if (next) {
             next->p = subs;
-            next->s = suppl;
-            next->e = NULL;
             subs = next;
-
             next = NULL;
+
+            subs->s = suppl;
+            subs->e = NULL;
+
             ++n_suppl;
         }
 
