@@ -3,8 +3,10 @@
 */
 
 /*  includes */
+#include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "diag.h"
 
@@ -30,6 +32,24 @@ static void usage(void)
         "[-p <term grace period>] "
         "[-t <termsig>]");
     exit(1);
+}
+
+static void move_to_ctrl_dir(void)
+{
+    char *path;
+    mode_t omask;
+    int rc;
+
+    path = getenv(CTRL_PATH_ENV);
+    if (!path) path = DEF_CTRL_PATH;
+
+    omask = umask(0);
+    rc = mkdir(path, 0711);
+    if (rc == -1 && errno != EEXIST) die("mkdir");
+    umask(omask);
+
+    rc = chdir(path);
+    if (rc == -1) die("chdir");
 }
 
 static void create_ctrl(char *name, char *grp)
