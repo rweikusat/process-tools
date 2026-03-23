@@ -6,6 +6,7 @@
 
 /*  includes */
 #include <errno.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <syslog.h>
 
@@ -22,6 +23,15 @@ static void die_(char const *fnc, char const *sysc)
 {
     syslog(LOG_ERR, "%s: %s: %m(%d)", fnc, sysc, errno);
     exit(1);
+}
+
+static void msg(char *tmpl, ...)
+{
+    va_list val;
+
+    va_start(val, tmpl);
+    vsyslog(LOG_NOTICE, tmpl, val);
+    va_end(val);
 }
 
 #endif
