@@ -9,6 +9,6 @@
 int main(void)
 {
     init_diag("monitor");
-    syslog(LOG_NOTICE, "Hurz!");
+    msg("Hurz!");
     return 0;
 }

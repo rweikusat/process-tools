@@ -66,9 +66,9 @@ extern char **environ;
 /*  routines */
 static void usage(void)
 {
-    syslog(LOG_NOTICE, "Usage: sane-env [-k <keep>] [-s <set>] <cmd> <arg>*");
-    syslog(LOG_NOTICE, "    Both options can appear any number of times. Keep arguments name vars to keep.");
-    syslog(LOG_NOTICE, "    Set arguments must be of the form <name>=<value>. Will be added.");
+    msg("Usage: sane-env [-k <keep>] [-s <set>] <cmd> <arg>*");
+    msg("    Both options can appear any number of times. Keep arguments name vars to keep.");
+    msg("    Set arguments must be of the form <name>=<value>. Will be added.");
     exit(1);
 }
 

@@ -12,7 +12,7 @@
 /*  routines */
 static void usage(void)
 {
-    syslog(LOG_NOTICE, "Usage: launch [-n <name>] <cmd> <arg>*");
+    msg("Usage: launch [-n <name>] <cmd> <arg>*");
     exit(1);
 }
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     background();
     setup_std_fds();
 
-    syslog(LOG_NOTICE, "exec '%s'", name);
+    msg("exec '%s'", name);
     execvp(*argv, argv);
 
     die("execvp");

@@ -19,7 +19,7 @@ struct substr {
 /*  routines */
 static void usage(void)
 {
-    syslog(LOG_NOTICE, "Usage: chids [-g <group>] [-s <group>[:<group>*] [-u <user>] <cmd> <arg>*");
+    msg("Usage: chids [-g <group>] [-s <group>[:<group>*] [-u <user>] <cmd> <arg>*");
     exit(1);
 }
 

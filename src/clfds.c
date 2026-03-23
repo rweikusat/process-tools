@@ -35,7 +35,7 @@ static struct keep std_keeps[3] = {
 /*   routines */
 static void usage(void)
 {
-    syslog(LOG_NOTICE, "Usage: clfds [-k <fd>[,<fd>]* <cmd> <args>*");
+    msg("Usage: clfds [-k <fd>[,<fd>]* <cmd> <args>*");
     exit(1);
 }
 
@@ -70,7 +70,7 @@ static void add_keeps(char *s, struct keep **keeps)
         } else {
             dg = c2dg(c);
             if (dg == -1) {
-                syslog(LOG_NOTICE, "garbage in fd: %c", c);
+                syslog(LOG_ERR, "garbage in fd: %c", c);
                 exit(1);
             }
 

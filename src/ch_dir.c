@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     init_diag("ch-dir");
 
     if (argc < 3) {
-        syslog(LOG_NOTICE, "Usage: ch-dir <directory> <cmd> <arg>*");
+        msg("Usage: ch-dir <directory> <cmd> <arg>*");
         exit(1);
     }
 
