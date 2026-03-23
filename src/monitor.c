@@ -4,6 +4,7 @@
 
 /*  includes */
 #include <signal.h>
+#include <string.h>
 
 #include "diag.h"
 
@@ -11,6 +12,10 @@
 enum {
     DEF_GRACE = 20`             /* seconds */
 };
+
+/*  macros */
+#define DEF_CTRL_PATH		"/run/__monitors__"
+#define CTRL_PATH_ENV		"MONITOR_CTRL_PATH"
 
 /*  variables */
 static char *name, **cmdv;
@@ -25,6 +30,54 @@ static void usage(void)
         "[-p <term grace period>] "
         "[-t <termsig>]");
     exit(1);
+}
+
+static void create_ctrl(char *name, char *grp)
+{
+    struct sockaddr_un sun;
+    char *sysc;
+    int cwd, rc, sk;
+    gid_t gid;
+
+    sk = socket(AF_UNIX, SOCK_STREM, 0);
+    if (sk == -1) die("socket");
+
+    cwd = open(".", O_PATH, 0);
+    if (cwd == -1) die("open .");
+
+    move_to_ctrl_dir();
+
+    sun.sun_family = AF_UNIX;
+    sprintf(sun.sun_path, ".tmp.%ld", getpid());
+    rc = bind(sk, (struct sockaddr *)&sun,
+              offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1);
+    if (rc == -1) die("bind");
+
+    if (grp) {
+        gid = gid_for(grp);
+
+        rc = chown(sun.sun_path, -1, gid);
+        if (rc == -1) {
+            sysc = "chown";
+            goto err;
+        }
+
+        rc = 0660;
+    } else
+        rc = 0600;
+    rc = chmod(sun.sun_path, rc);
+    if (rc == -1) {
+        sysc = "chmod";
+        goto err;
+    }
+
+    rc = rename(sun.sun_path, name);
+    if (rc == 0) return;
+    sysc = "rename";
+
+err:
+    unlink(sun.sun_path);
+    die(sysc);
 }
 
 static void init(int argc, char **argv)
