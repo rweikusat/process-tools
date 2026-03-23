@@ -56,6 +56,7 @@ TARGET_BIN :=	$(TARGET)/bin
 #*  targets
 #
 .PHONY: all clean install deb
+.PRECIOUS: tmp/diag.o
 
 all: $(PRGS)
 
