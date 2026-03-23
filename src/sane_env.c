@@ -156,12 +156,11 @@ static void set_var(char *v)
 
     n_end = strchr(v, '=');
     if (!n_end) {
-        syslog(LOG_ERR, "invalid set: must be name=value, not %s",
-               v);
+        err("invalid set: must be name=value, not %s", v);
         exit(1);
     }
     if (n_end == v) {
-        syslog(LOG_ERR, "empty name in -s");
+        err("empty name in -s");
         exit(1);
     }
 
@@ -182,7 +181,7 @@ static void do_uvars(void)
     uid = getuid();
     pwd = getpwuid(uid);
     if (!pwd) {
-        syslog(LOG_WARNING, "found no pwd for uid %u", (unsigned)uid);
+        warn("found no pwd for uid %u", (unsigned)uid);
         return;
     }
 

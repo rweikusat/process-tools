@@ -70,7 +70,7 @@ static void add_keeps(char *s, struct keep **keeps)
         } else {
             dg = c2dg(c);
             if (dg == -1) {
-                syslog(LOG_ERR, "garbage in fd: %c", c);
+                err("garbage in fd: %c", c);
                 exit(1);
             }
 
