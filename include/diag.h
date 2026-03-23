@@ -17,5 +17,7 @@
 void init_diag(char *name);
 void die_(char const *fnc, char const *sysc);
 void msg(char *tmpl, ...);
+void err(char *tmpl, ...);
+void warn(char *tmpl, ...);
 
 #endif
