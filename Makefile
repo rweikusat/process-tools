@@ -81,5 +81,5 @@ tmp/%.d: src/%.c
 tmp/%.o: src/%.c tmp/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-bin/%:
+bin/%: tmp/diag.o
 	$(LD) -o $@ $^
