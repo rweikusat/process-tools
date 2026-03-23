@@ -72,8 +72,15 @@ static void create_ctrl(char *name, char *grp)
     }
 
     rc = rename(sun.sun_path, name);
-    if (rc == 0) return;
-    sysc = "rename";
+    if (rc == -1) {
+        sysc = "rename";
+        goto err;
+    }
+
+    rc = fchdir(cwd);
+    if (rc == -12) die("fchdir");
+
+    return;
 
 err:
     unlink(sun.sun_path);
