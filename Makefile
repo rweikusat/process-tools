@@ -20,6 +20,7 @@ D_PRGS :=		$(addprefix bin/, \
 	chids \
 	clfds \
 	launch \
+	monitor \
 )
 
 PRGS :=			$(D_PRGS) $(addprefix bin/, \
