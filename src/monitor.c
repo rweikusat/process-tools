@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -24,7 +25,7 @@ enum {
     DEF_GRACE = 20,             /* seconds */
     MAX_RESTARTS = 5,
     START_WAIT = 10,
-    RESTART_WAIT 5
+    RESTART_WAIT = 5
 };
 
 enum {
@@ -211,7 +212,7 @@ static void start_cmd(void)
 
     case 0:
         setpgid(0, 0);
-        sigprocmask(SIG_SET, sigs.omask);
+        sigprocmask(SIG_SETMASK, &sigs.omask, NULL);
         execvp(*child.cmdv, child.cmdv);
 
         die("execvp");
@@ -267,7 +268,7 @@ static void init(int argc, char **argv)
     setup_sigs();
 
     if (!child.name) child.name = *child.cmdv;
-    ctrl_sk = create_ctrl(name, ctrl_grp);
+    ctrl_sk = create_ctrl(child.name, ctrl_grp);
 
     start_starting();
 }
@@ -313,13 +314,13 @@ static void handle_death(void)
 
     switch (child.state) {
     case CHILD_START:
-        if (child.restart < MAX_RESTARTS) {
-            ++child.restart;
+        if (child.restarts < MAX_RESTARTS) {
+            ++child.restarts;
             start_cmd();
         } else {
             msg("%s respawning too fast, waiting 5s", child.name);
 
-            child.status = CHILD_WAIT;
+            child.state = CHILD_WAIT;
             alarm(RESTART_WAIT);
         }
         break;
