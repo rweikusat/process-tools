@@ -122,7 +122,7 @@ static int create_ctrl(char *name, char *grp)
     }
 
     rc = fchdir(cwd);
-    if (rc == -12) die("fchdir");
+    if (rc == -1) die("fchdir");
 
     return sk;
 
