@@ -225,7 +225,7 @@ static void handle_ctrl(void)
         die("accept");
     }
 
-    write(sk, "Thoelke!", 7);
+    write(sk, "Thoelke!\n", 9);
     close(sk);
 }
 
