@@ -291,6 +291,8 @@ static void handle_alrm(void)
 {
     switch (child.state) {
     case CHILD_START:
+        msg("%s running", child.name);
+
         child.restarts = 0;
         child.state = CHILD_RUN;
         break;
