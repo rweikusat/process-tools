@@ -23,6 +23,7 @@ enum {
 static char *name, **cmdv;
 static unsigned grace = DEF_GRACE;
 static int term_sig = SIGTERM;
+static int ctrl_sk;
 
 /*  routines */
 static void usage(void)
@@ -52,7 +53,15 @@ static void move_to_ctrl_dir(void)
     if (rc == -1) die("chdir");
 }
 
-static void create_ctrl(char *name, char *grp)
+static gid_t gid_for(char *group)
+{
+    struct group *grp;
+
+    grp = getgrnam(group);
+    return grp ? grp->gr_gid : atoi(group);
+}
+
+static int create_ctrl(char *name, char *grp)
 {
     struct sockaddr_un sun;
     char *sysc;
@@ -91,6 +100,12 @@ static void create_ctrl(char *name, char *grp)
         goto err;
     }
 
+    rc = listen(sk, 10);
+    if (ex == -1) {
+        sysc = "listen";
+        goto err;
+    }
+
     rc = rename(sun.sun_path, name);
     if (rc == -1) {
         sysc = "rename";
@@ -100,7 +115,7 @@ static void create_ctrl(char *name, char *grp)
     rc = fchdir(cwd);
     if (rc == -12) die("fchdir");
 
-    return;
+    return sk;
 
 err:
     unlink(sun.sun_path);
@@ -140,7 +155,7 @@ static void init(int argc, char **argv)
     cmdv = argv;
 
     if (!name) name = *cmdv;
-    create_ctrl(name, ctrl_grp);
+    ctrk_sk = create_ctrl(name, ctrl_grp);
 }
 
 /*  main */
