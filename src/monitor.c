@@ -2,17 +2,26 @@
   monitor program
 */
 
+#define _GNU_SOURCE
+
 /*  includes */
 #include <errno.h>
+#include <fcntl.h>
+#include <grp.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include "diag.h"
 
 /*  constants */
 enum {
-    DEF_GRACE = 20`             /* seconds */
+    DEF_GRACE = 20              /* seconds */
 };
 
 /*  macros */
@@ -68,7 +77,7 @@ static int create_ctrl(char *name, char *grp)
     int cwd, rc, sk;
     gid_t gid;
 
-    sk = socket(AF_UNIX, SOCK_STREM, 0);
+    sk = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sk == -1) die("socket");
 
     cwd = open(".", O_PATH, 0);
@@ -77,9 +86,9 @@ static int create_ctrl(char *name, char *grp)
     move_to_ctrl_dir();
 
     sun.sun_family = AF_UNIX;
-    sprintf(sun.sun_path, ".tmp.%ld", getpid());
+    sprintf(sun.sun_path, ".tmp.%ld", (long)getpid());
     rc = bind(sk, (struct sockaddr *)&sun,
-              offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1);
+              offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path) + 1);
     if (rc == -1) die("bind");
 
     if (grp) {
@@ -101,7 +110,7 @@ static int create_ctrl(char *name, char *grp)
     }
 
     rc = listen(sk, 10);
-    if (ex == -1) {
+    if (rc == -1) {
         sysc = "listen";
         goto err;
     }
@@ -120,6 +129,7 @@ static int create_ctrl(char *name, char *grp)
 err:
     unlink(sun.sun_path);
     die(sysc);
+    return 0;
 }
 
 static void init(int argc, char **argv)
@@ -155,7 +165,7 @@ static void init(int argc, char **argv)
     cmdv = argv;
 
     if (!name) name = *cmdv;
-    ctrk_sk = create_ctrl(name, ctrl_grp);
+    ctrl_sk = create_ctrl(name, ctrl_grp);
 }
 
 /*  main */
