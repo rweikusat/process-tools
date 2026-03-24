@@ -239,7 +239,7 @@ static void init(int argc, char **argv)
     int c;
 
     ctrl_grp = NULL;
-    while (c = getopt(argc, argv, "g:n:p:t:"), c != -1)
+    while (c = getopt(argc, argv, "+g:n:p:t:"), c != -1)
         switch (c) {
         case 'g':
             ctrl_grp = optarg;
