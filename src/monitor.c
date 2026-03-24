@@ -88,7 +88,7 @@ static int create_ctrl(char *name, char *grp)
     int cwd, rc, sk;
     gid_t gid;
 
-    sk = socket(AF_UNIX, SOCK_STREAM, 0);
+    sk = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (sk == -1) die("socket");
 
     cwd = open(".", O_PATH, 0);
@@ -125,6 +125,11 @@ static int create_ctrl(char *name, char *grp)
         sysc = "listen";
         goto err;
     }
+
+    rc = fcntl(sk, F_SETOWN, getpid());
+    if (rc != -1)
+        rc = fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC);
+    if (rc == -1) die("fcntl");
 
     rc = rename(sun.sun_path, name);
     if (rc == -1) {
