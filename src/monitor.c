@@ -21,7 +21,17 @@
 
 /*  constants */
 enum {
-    DEF_GRACE = 20              /* seconds */
+    DEF_GRACE = 20,             /* seconds */
+    MAX_RESTARTS = 5,
+    START_WAIT = 10,
+    RESTART_WAIT 5
+};
+
+enum {
+    CHILD_START,
+    CHILD_RUN,
+    CHILD_TERM,
+    CHILD_WAIT
 };
 
 /*  macros */
@@ -29,11 +39,26 @@ enum {
 #define CTRL_PATH_ENV		"MONITOR_CTRL_PATH"
 
 /*  variables */
-static char *name, **cmdv;
-static unsigned grace = DEF_GRACE;
-static int term_sig = SIGTERM;
 static int ctrl_sk;
-static sigset_t handled_sigs, omask;
+
+static struct {
+    char *name, **cmdv;
+    pid_t pid;
+    int state;
+    unsigned restarts;
+} child;
+
+static struct {
+    unsigned grace;
+    int sig;
+} term = {
+    .grace = DEF_GRACE,
+    .sig = SIGTERM
+};
+
+static struct {
+    sigset_t handled, omask;
+} sigs;
 
 static int my_sigs[] = {
     SIGALRM,
@@ -166,15 +191,45 @@ static void setup_sigs(void)
 {
     int *psig, sig;
 
-    sigemptyset(&handled_sigs);
+    sigemptyset(&sigs.handled);
     psig = my_sigs;
     while (sig = *psig, sig != -1) {
-        sigaddset(&handled_sigs, sig);
+        sigaddset(&sigs.handled, sig);
         ++psig;
     }
 
-    sigprocmask(SIG_BLOCK, &handled_sigs, &omask);
+    sigprocmask(SIG_BLOCK, &sigs.handled, &sigs.omask);
     enable_chld();
+}
+
+static void start_cmd(void)
+{
+    child.pid = fork();
+    switch (child.pid) {
+    case -1:
+        die("fork");
+
+    case 0:
+        setpgid(0, 0);
+        sigprocmask(SIG_SET, sigs.omask);
+        execvp(*child.cmdv, child.cmdv);
+
+        die("execvp");
+    }
+
+    setpgid(child.pid, 0);
+    msg("started %s, pid %ld", child.name, (long)child.pid);
+}
+
+static void start_starting(void)
+{
+    msg("starting %s", child.name);
+
+    child.state = CHILD_START;
+    child.restarts = 0;
+
+    alarm(START_WAIT);
+    start_cmd();
 }
 
 static void init(int argc, char **argv)
@@ -190,15 +245,15 @@ static void init(int argc, char **argv)
             break;
 
         case 'n':
-            name = optarg;
+            child.name = optarg;
             break;
 
         case 'p':
-            grace = atoi(optarg);
+            term.grace = atoi(optarg);
             break;
 
         case 't':
-            term_sig = atoi(optarg);
+            term.sig = atoi(optarg);
             break;
 
         default:
@@ -207,12 +262,14 @@ static void init(int argc, char **argv)
 
     argv += optind;
     if (!*argv) usage();
-    cmdv = argv;
+    child.cmdv = argv;
 
     setup_sigs();
 
-    if (!name) name = *cmdv;
+    if (!child.name) child.name = *child.cmdv;
     ctrl_sk = create_ctrl(name, ctrl_grp);
+
+    start_starting();
 }
 
 static void handle_ctrl(void)
@@ -229,6 +286,73 @@ static void handle_ctrl(void)
     close(sk);
 }
 
+static void handle_alrm(void)
+{
+    switch (child.state) {
+    case CHILD_START:
+        child.restarts = 0;
+        child.state = CHILD_RUN;
+        break;
+
+    case CHILD_TERM:
+        msg("%s didn't terminate after %us, killing", child.name, term.grace);
+        kill(-child.pid, SIGKILL);
+        break;
+
+    case CHILD_WAIT:
+        start_starting();
+    }
+}
+
+static void handle_death(void)
+{
+    int status;
+
+    wait(&status);
+    msg("%s terminated, status %d", child.name, status);
+
+    switch (child.state) {
+    case CHILD_START:
+        if (child.restart < MAX_RESTARTS) {
+            ++child.restart;
+            start_cmd();
+        } else {
+            msg("%s respawning too fast, waiting 5s", child.name);
+
+            child.status = CHILD_WAIT;
+            alarm(RESTART_WAIT);
+        }
+        break;
+
+    case CHILD_RUN:
+        start_starting();
+        break;
+
+    case CHILD_TERM:
+        exit(0);
+    }
+}
+
+static void handle_term(void)
+{
+    switch (child.state) {
+    case CHILD_START:
+    case CHILD_RUN:
+        msg("terminating %s", child.name);
+
+        kill(-child.pid, term.sig);
+        child.state = CHILD_TERM;
+        alarm(term.grace);
+        break;
+
+    case CHILD_TERM:
+        break;
+
+    case CHILD_WAIT:
+        exit(0);
+    }
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -238,19 +362,30 @@ int main(int argc, char **argv)
     init(argc, argv);
 
     while (1) {
-        sigwait(&handled_sigs, &sig);
+        sigwait(&sigs.handled, &sig);
+        msg("got signal %d", sig);
 
         switch (sig) {
+        case SIGALRM:
+            handle_alrm();
+            break;
+
+        case SIGCHLD:
+            handle_death();
+            break;
+
         case SIGINT:
-        case SIGTERM:
-            goto out;
+            handle_term();
+            break;
 
         case SIGIO:
             handle_ctrl();
+            break;
+
+        case SIGTERM:
+            handle_term();
         }
     }
 
-out:
-    msg("terminating");
     return 0;
 }
