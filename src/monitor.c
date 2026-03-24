@@ -232,13 +232,13 @@ static void handle_ctrl(void)
 /*  main */
 int main(int argc, char **argv)
 {
-    int *sig;
+    int sig;
 
     init_diag("monitor");
     init(argc, argv);
 
     while (1) {
-        sigwait(&handled_set, &sig);
+        sigwait(&handled_sigs, &sig);
 
         switch (sig) {
         case SIGINT:
