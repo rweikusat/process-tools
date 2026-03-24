@@ -33,6 +33,17 @@ static char *name, **cmdv;
 static unsigned grace = DEF_GRACE;
 static int term_sig = SIGTERM;
 static int ctrl_sk;
+static sigset_t handled_sigs, omask;
+
+static int my_sigs[] = {
+    SIGALRM,
+    SIGCHLD,
+    SIGINT,
+    SIGIO,
+    SIGTERM,
+
+    -1
+};
 
 /*  routines */
 static void usage(void)
@@ -132,6 +143,35 @@ err:
     return 0;
 }
 
+static void dummy_handler(int)
+{}
+
+static void enable_chld(void)
+{
+    struct sigaction sa;
+
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_handler = dummy_handler;
+
+    sigaction(SIGCHLD, &sa, NULL);
+}
+
+static void setup_sigs(void)
+{
+    int *psig, sig;
+
+    sigemptyset(&handled_sigs);
+    psig = my_sigs;
+    while (sig = *psig, sig != -1) {
+        sigaddset(&handled_sigs, sig);
+        ++psig;
+    }
+
+    sigprocmask(SIG_BLOCK, &handled_sigs, &omask);
+    enable_chld();
+}
+
 static void init(int argc, char **argv)
 {
     char *ctrl_grp;
@@ -163,6 +203,8 @@ static void init(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
     cmdv = argv;
+
+    setup_sigs();
 
     if (!name) name = *cmdv;
     ctrl_sk = create_ctrl(name, ctrl_grp);
