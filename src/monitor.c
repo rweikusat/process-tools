@@ -215,12 +215,42 @@ static void init(int argc, char **argv)
     ctrl_sk = create_ctrl(name, ctrl_grp);
 }
 
+static void handle_ctrl(void)
+{
+    int sk;
+
+    sk = accept(ctrl_sk, NULL, NULL);
+    if (sk == -1) {
+        if (errno == EAGAIN) return;
+        die("accept");
+    }
+
+    write(sk, "Thoelke!", 7);
+    close(sk);
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
-    init_diag("monitor");
+    int *sig;
 
+    init_diag("monitor");
     init(argc, argv);
 
+    while (1) {
+        sigwait(&handled_set, &sig);
+
+        switch (sig) {
+        case SIGINT:
+        case SIGTERM:
+            goto out;
+
+        case SIGIO:
+            handle_ctrl();
+        }
+    }
+
+out:
+    msg("terminating");
     return 0;
 }
