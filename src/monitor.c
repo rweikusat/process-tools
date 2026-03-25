@@ -381,11 +381,10 @@ static void handle_chld(void)
             send_success(ctrl.active);
             close(ctrl.active);
             ctrl.active = -1;
-
-            if (child.state != CHILD_TERM) break;
         }
 
-        exit(0);
+        if (child.state == CHILD_TERM)
+            exit(0);
     }
 }
 
