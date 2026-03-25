@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
@@ -149,7 +150,7 @@ static void start_starting(void)
     start_cmd();
 }
 
-static int read_ctrl_msg(int sk, struct ctrl_msg *msg)
+static int read_ctrl_msg(int sk, struct ctrl_msg *c_msg)
 {
     uint8_t raw[4];
     int rc;
@@ -170,10 +171,10 @@ static int read_ctrl_msg(int sk, struct ctrl_msg *msg)
         return -1;
     }
 
-    msg->cmd = raw[1];
-    msg->data = raw[2] | raw[3] << 8;
+    c_msg->cmd = raw[1];
+    c_msg->data = raw[2] | raw[3] << 8;
 
-    msg("recvd %s(%d), data %u", cmds[msg->cmd], msg->cmd, msg->data);
+    msg("recvd %s(%d), data %u", cmds[c_msg->cmd], c_msg->cmd, c_msg->data);
     return 0;
 }
 
@@ -191,7 +192,7 @@ static void send_success(int sk)
 
 static void handle_ctrl(void)
 {
-    struct ctrl_msg msg;
+    struct ctrl_msg c_msg;
     int sk, rc;
 
     sk = accept4(ctrl.listen, NULL, NULL, SOCK_CLOEXEC);
@@ -202,13 +203,13 @@ static void handle_ctrl(void)
 
     msg("control connect");
 
-    rc = read_ctrl_msg(sk, &msg);
+    rc = read_ctrl_msg(sk, &c_msg);
     if (rc == -1) {
         close(sk);
         return;
     }
 
-    switch (msg.cmd) {
+    switch (c_msg.cmd) {
     case CMD_STATUS:
         switch (child.state) {
         case CHILD_START:
@@ -265,11 +266,11 @@ static void handle_ctrl(void)
         }
         break;
 
-    case CMD_SIGNAL:
+    case CMD_SIG:
         switch (child.state) {
         case CHILD_START:
         case CHILD_RUN:
-            kill(child.pid, msg.data);
+            kill(child.pid, c_msg.data);
             send_success(sk);
             break;
 
@@ -364,6 +365,21 @@ static void handle_chld(void)
         break;
 
     case CHILD_TERM:
+        if (ctrl.active != -1) {
+            send_success(ctrl.active);
+            close(ctrl.active);
+            ctrl.active = -1;
+        }
+
+        if (child.want.restart) {
+            child.want.restart = 0;
+            signal(SIGIO, SIG_DFL);
+            raise(SIGIO);
+
+            start_starting();
+            break;
+        }
+
         exit(0);
     }
 }
