@@ -180,16 +180,16 @@ static int read_ctrl_msg(int sk, struct ctrl_msg *c_msg)
 
 static void send_fail(int sk)
 {
-    uint8_t msg[4] = { 0 };
-    write(sk, msg, sizeof(msg));
+    uint8_t r_msg[4] = { 0 };
+    write(sk, r_msg, sizeof(r_msg));
 
     msg("ctrl fail");
 }
 
 static void send_success(int sk)
 {
-    uint8_t msg[4] = { 1, 0 };
-    write(sk, msg, sizeof(msg));
+    uint8_t r_msg[4] = { 1, 0 };
+    write(sk, r_msg, sizeof(r_msg));
 
     msg("ctrl success");
 }
