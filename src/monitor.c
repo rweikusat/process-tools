@@ -58,7 +58,9 @@ struct ctrl_msg {
 /*  variables */
 static struct {
     int listen, active;
-} ctrl;
+} ctrl = {
+    .active = -1
+};
 
 static struct {
     char *name, **cmdv;
@@ -192,6 +194,68 @@ static void handle_ctrl(void)
     if (rc == -1) {
         close(sk);
         return;
+    }
+
+    switch (msg.cmd) {
+    case CMD_STATUS:
+        switch (child.state) {
+        case CHILD_START:
+        case CHILD_RUN:
+        case CHILD_WAIT:
+            send_success(sk);
+            break;
+
+        case CHILD_STOPPED:
+            if (child.want.term) send_fail(sk);
+            else send_success(sk);
+        }
+
+        close(sk);
+        sk = -1;
+        break;
+
+    case CMD_TERM:
+        if (child.state == CHILD_WAIT) {
+            send_success(sk);
+            exit(0);
+        }
+
+        raise(SIGTERM);
+        break;
+
+    case CMD_RESTART:
+        switch (child.state) {
+        case CHILD_START:
+        case CHILD_RUN:
+            child.want.restart = 1;
+            raise(SIGTERM);
+            break;
+
+        case CHILD_TERM:
+            send_fail(sk);
+            close(sk);
+            sk = -1;
+            break;
+
+        case CHILD_WAIT:
+            child.want.restart = 1;
+            break;
+
+        case CHILD_STOPPED:
+            if (child.want.term) {
+                send_fail(sk);
+                close(sk);
+                sk = -1;
+                break;
+            }
+
+            child.want.restart = 1;
+        }
+    }
+
+    if (sk != -1) {
+        ctrl.active = sk;
+        signal(SIGIO, SIG_IGN);
     }
 }
 
