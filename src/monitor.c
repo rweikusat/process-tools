@@ -148,7 +148,7 @@ static void handle_alrm(void)
     }
 }
 
-static void handle_death(void)
+static void handle_chld(void)
 {
     int status;
 
@@ -381,7 +381,7 @@ int main(int argc, char **argv)
             break;
 
         case SIGCHLD:
-            handle_death();
+            handle_chld();
             break;
 
         case SIGINT:
