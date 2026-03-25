@@ -182,12 +182,16 @@ static void send_fail(int sk)
 {
     uint8_t msg[4] = { 0 };
     write(sk, msg, sizeof(msg));
+
+    msg("ctrl fail");
 }
 
 static void send_success(int sk)
 {
     uint8_t msg[4] = { 1, 0 };
     write(sk, msg, sizeof(msg));
+
+    msg("ctrl success");
 }
 
 static void handle_ctrl(void)
@@ -201,7 +205,7 @@ static void handle_ctrl(void)
         die("accept");
     }
 
-    msg("control connect");
+    msg("ctrl connect");
 
     rc = read_ctrl_msg(sk, &c_msg);
     if (rc == -1) {
