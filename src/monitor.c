@@ -118,7 +118,6 @@ static void start_starting(void)
     start_cmd();
 }
 
-
 static void handle_ctrl(void)
 {
     int sk;
