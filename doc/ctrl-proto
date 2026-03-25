@@ -18,7 +18,7 @@ Request Message
                         4	rexec monitor
 	D ::=	data
 
-When C is 3 (signal) data will be the signal number in host byte order.
+When C is 3 (signal) data will be the signal number in little-endian byte order.
 The D bits are ignored for all other commands.
 
 
@@ -34,4 +34,4 @@ Reply Message
         		0	action not taken
                         1	action taken
 
-Reply code is transmitted in host byte-order.
+Reply code is transmitted in little-endian byte order.
