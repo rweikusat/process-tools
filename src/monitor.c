@@ -251,6 +251,23 @@ static void handle_ctrl(void)
 
             child.want.restart = 1;
         }
+        break;
+
+    case CMD_SIGNAL:
+        switch (child.state) {
+        case CHILD_START:
+        case CHILD_RUN:
+            kill(child.pid, msg.data);
+            send_success(sk);
+            break;
+
+        default:
+            send_fail(sk);
+        }
+
+        close(sk);
+        sk = -1;
+        break;
     }
 
     if (sk != -1) {
