@@ -72,6 +72,7 @@ static int my_sigs[] = {
 };
 
 /*  routines */
+/**  misc */
 static void usage(void)
 {
     msg("Usage: monitor [-g <ctrl socket group>] "
@@ -81,6 +82,122 @@ static void usage(void)
     exit(1);
 }
 
+/**  signal handlers & helpers */
+static void start_cmd(void)
+{
+    child.pid = fork();
+    switch (child.pid) {
+    case -1:
+        die("fork");
+
+    case 0:
+        setpgid(0, 0);
+        sigprocmask(SIG_SETMASK, &sigs.omask, NULL);
+        execvp(*child.cmdv, child.cmdv);
+
+        die("execvp");
+    }
+
+    setpgid(child.pid, 0);
+    msg("started %s, pid %ld", child.name, (long)child.pid);
+}
+
+static void start_starting(void)
+{
+    msg("starting %s", child.name);
+
+    child.state = CHILD_START;
+    child.restarts = 0;
+
+    alarm(START_WAIT);
+    start_cmd();
+}
+
+
+static void handle_ctrl(void)
+{
+    int sk;
+
+    sk = accept(ctrl_sk, NULL, NULL);
+    if (sk == -1) {
+        if (errno == EAGAIN) return;
+        die("accept");
+    }
+
+    write(sk, "Thoelke!\n", 9);
+    close(sk);
+}
+
+static void handle_alrm(void)
+{
+    switch (child.state) {
+    case CHILD_START:
+        msg("%s running", child.name);
+
+        child.restarts = 0;
+        child.state = CHILD_RUN;
+        break;
+
+    case CHILD_TERM:
+        msg("%s didn't terminate after %us, killing", child.name, term.grace);
+        kill(-child.pid, SIGKILL);
+        break;
+
+    case CHILD_WAIT:
+        start_starting();
+    }
+}
+
+static void handle_death(void)
+{
+    int status;
+
+    wait(&status);
+    msg("%s terminated, status %d", child.name, status);
+
+    switch (child.state) {
+    case CHILD_START:
+        if (child.restarts < MAX_RESTARTS) {
+            ++child.restarts;
+            start_cmd();
+        } else {
+            msg("%s respawning too fast, waiting 5s", child.name);
+
+            child.state = CHILD_WAIT;
+            alarm(RESTART_WAIT);
+        }
+        break;
+
+    case CHILD_RUN:
+        start_starting();
+        break;
+
+    case CHILD_TERM:
+        exit(0);
+    }
+}
+
+static void handle_term(void)
+{
+    switch (child.state) {
+    case CHILD_START:
+    case CHILD_RUN:
+        msg("terminating %s", child.name);
+
+        kill(-child.pid, term.sig);
+        child.state = CHILD_TERM;
+        alarm(term.grace);
+        break;
+
+    case CHILD_TERM:
+        break;
+
+    case CHILD_WAIT:
+        exit(0);
+    }
+}
+
+/** ctrl socket creation */
 static void move_to_ctrl_dir(void)
 {
     char *path;
@@ -174,6 +291,7 @@ err:
     return 0;
 }
 
+/**  signal setup */
 static void dummy_handler(int)
 {}
 
@@ -203,36 +321,7 @@ static void setup_sigs(void)
     enable_chld();
 }
 
-static void start_cmd(void)
-{
-    child.pid = fork();
-    switch (child.pid) {
-    case -1:
-        die("fork");
-
-    case 0:
-        setpgid(0, 0);
-        sigprocmask(SIG_SETMASK, &sigs.omask, NULL);
-        execvp(*child.cmdv, child.cmdv);
-
-        die("execvp");
-    }
-
-    setpgid(child.pid, 0);
-    msg("started %s, pid %ld", child.name, (long)child.pid);
-}
-
-static void start_starting(void)
-{
-    msg("starting %s", child.name);
-
-    child.state = CHILD_START;
-    child.restarts = 0;
-
-    alarm(START_WAIT);
-    start_cmd();
-}
-
+/**  general init */
 static void init(int argc, char **argv)
 {
     char *ctrl_grp;
@@ -273,88 +362,6 @@ static void init(int argc, char **argv)
     start_starting();
 }
 
-static void handle_ctrl(void)
-{
-    int sk;
-
-    sk = accept(ctrl_sk, NULL, NULL);
-    if (sk == -1) {
-        if (errno == EAGAIN) return;
-        die("accept");
-    }
-
-    write(sk, "Thoelke!\n", 9);
-    close(sk);
-}
-
-static void handle_alrm(void)
-{
-    switch (child.state) {
-    case CHILD_START:
-        msg("%s running", child.name);
-
-        child.restarts = 0;
-        child.state = CHILD_RUN;
-        break;
-
-    case CHILD_TERM:
-        msg("%s didn't terminate after %us, killing", child.name, term.grace);
-        kill(-child.pid, SIGKILL);
-        break;
-
-    case CHILD_WAIT:
-        start_starting();
-    }
-}
-
-static void handle_death(void)
-{
-    int status;
-
-    wait(&status);
-    msg("%s terminated, status %d", child.name, status);
-
-    switch (child.state) {
-    case CHILD_START:
-        if (child.restarts < MAX_RESTARTS) {
-            ++child.restarts;
-            start_cmd();
-        } else {
-            msg("%s respawning too fast, waiting 5s", child.name);
-
-            child.state = CHILD_WAIT;
-            alarm(RESTART_WAIT);
-        }
-        break;
-
-    case CHILD_RUN:
-        start_starting();
-        break;
-
-    case CHILD_TERM:
-        exit(0);
-    }
-}
-
-static void handle_term(void)
-{
-    switch (child.state) {
-    case CHILD_START:
-    case CHILD_RUN:
-        msg("terminating %s", child.name);
-
-        kill(-child.pid, term.sig);
-        child.state = CHILD_TERM;
-        alarm(term.grace);
-        break;
-
-    case CHILD_TERM:
-        break;
-
-    case CHILD_WAIT:
-        exit(0);
-    }
-}
 
 /*  main */
 int main(int argc, char **argv)
