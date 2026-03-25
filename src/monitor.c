@@ -32,7 +32,8 @@ enum {
     CHILD_START,
     CHILD_RUN,
     CHILD_TERM,
-    CHILD_WAIT
+    CHILD_WAIT,
+    CHILD_STOPPED
 };
 
 /*  macros */
@@ -45,7 +46,7 @@ static int ctrl_sk;
 static struct {
     char *name, **cmdv;
     pid_t pid;
-    int state;
+    int state, old_state;
     unsigned restarts;
 } child;
 
@@ -152,8 +153,34 @@ static void handle_chld(void)
 {
     int status;
 
-    wait(&status);
+    waitpid(child.pid, &status, WUNTRACED | WCONTINUED);
     msg("%s terminated, status %d", child.name, status);
+
+    if (WIFSTOPPED(status)) {
+        msg("%s stopped", child.name);
+
+        child.old_state = child.state;
+        child.state = CHILD_STOPPED;
+
+        alarm(0);
+        return;
+    }
+
+    if (WIFCONTINUED(status)) {
+        msg("%s continued", child.name);
+
+        child.state = child.old_state;
+        switch (child.state) {
+        case CHILD_START:
+            alarm(START_WAIT);
+            break;
+
+        case CHILD_TERM:
+            alarm(term.grace);
+        }
+
+        return;
+    }
 
     switch (child.state) {
     case CHILD_START:
