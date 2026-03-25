@@ -36,12 +36,29 @@ enum {
     CHILD_STOPPED
 };
 
+enum {
+    CMD_STATUS,
+    CMD_TERM,
+    CMD_RESTART,
+    CMD_SIG,
+    CMD_REX,
+
+    N_CMDS
+};
+
 /*  macros */
 #define DEF_CTRL_PATH		"/run/__monitors__"
 #define CTRL_PATH_ENV		"MONITOR_CTRL_PATH"
 
+/*  types */
+struct ctrl_msg {
+    unsigned cmd, data;
+};
+
 /*  variables */
-static int ctrl_sk;
+static struct {
+    int listen, active;
+} ctrl;
 
 static struct {
     char *name, **cmdv;
@@ -74,6 +91,18 @@ static int my_sigs[] = {
     SIGTERM,
 
     -1
+};
+
+static char *cmds[] = {
+#define n_(x) [x] = #x
+
+    n_(CMD_STATUS),
+    n_(CMD_TERM),
+    n_(CMD_RESTART),
+    n_(CMD_SIG),
+    n_(CMD_REX)
+
+#undef n_
 };
 
 /*  routines */
@@ -118,18 +147,52 @@ static void start_starting(void)
     start_cmd();
 }
 
+static int read_ctrl_msg(int sk, struct ctrl_msg *msg)
+{
+    uint8_t raw[4];
+    int rc;
+
+    rc = read(sk, raw, sizeof(raw));
+    if (rc != 4) {
+        msg("failed to read message");
+        return -1;
+    }
+
+    if (*raw != 1) {
+        msg("version mismatch, got %d wanted 1", *raw);
+        return -1;
+    }
+
+    if (raw[1] >= N_CMDS) {
+        msg("unknown command %d", raw[1]);
+        return -1;
+    }
+
+    msg->cmd = raw[1];
+    msg->data = raw[2] | raw[3] << 8;
+
+    msg("recvd %s(%d), data %u", cmds[msg->cmd], msg->cmd, msg->data);
+    return 0;
+}
+
 static void handle_ctrl(void)
 {
-    int sk;
+    struct ctrl_msg msg;
+    int sk, rc;
 
-    sk = accept4(ctrl_sk, NULL, NULL, SOCK_CLOEXEC);
+    sk = accept4(ctrl.listen, NULL, NULL, SOCK_CLOEXEC);
     if (sk == -1) {
         if (errno == EAGAIN) return;
         die("accept");
     }
 
-    write(sk, "Thoelke!\n", 9);
-    close(sk);
+    msg("control connect");
+
+    rc = read_ctrl_msg(sk, &msg);
+    if (rc == -1) {
+        close(sk);
+        return;
+    }
 }
 
 static void handle_alrm(void)
@@ -398,7 +461,7 @@ static void init(int argc, char **argv)
     setup_sigs();
 
     if (!child.name) child.name = *child.cmdv;
-    ctrl_sk = create_ctrl(child.name, ctrl_grp);
+    ctrl.listen = create_ctrl(child.name, ctrl_grp);
 
     start_starting();
 }
