@@ -177,6 +177,18 @@ static int read_ctrl_msg(int sk, struct ctrl_msg *msg)
     return 0;
 }
 
+static void send_fail(int sk)
+{
+    uint8_t msg[4] = { 0 };
+    write(sk, msg, sizeof(msg));
+}
+
+static void send_success(int sk)
+{
+    uint8_t msg[4] = { 1, 0 };
+    write(sk, msg, sizeof(msg));
+}
+
 static void handle_ctrl(void)
 {
     struct ctrl_msg msg;
