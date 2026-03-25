@@ -122,7 +122,7 @@ static void handle_ctrl(void)
 {
     int sk;
 
-    sk = accept(ctrl_sk, NULL, NULL);
+    sk = accept4(ctrl_sk, NULL, NULL, SOCK_CLOEXEC);
     if (sk == -1) {
         if (errno == EAGAIN) return;
         die("accept");
