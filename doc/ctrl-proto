@@ -1,0 +1,37 @@
+Control Protcol
+===============
+
+Request Message
+---------------
+
+ 7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0
+ ---------------------------------------------------------------
+|V V V V V V V V|C C C C C C C C|D D D D D D D D|D D D D D D D D|
+ ---------------------------------------------------------------
+
+	V ::=	version,. 1
+        C ::=	command
+        		0	status
+                        1	terminate
+                        2	restart
+                        3	signal
+                        4	rexec monitor
+	D ::=	data
+
+When C is 3 (signal) data will be the signal number in host byte order.
+The D bits are ignored for all other commands.
+
+
+Reply Message
+-------------
+
+ 7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0|7 6 5 4 3 2 1 0
+ ---------------------------------------------------------------
+|R R R R R R R R|R R R R R R R R|R R R R R R R R|R R R R R R R R|
+ ---------------------------------------------------------------
+
+	R ::=	reply code
+        		0	action not taken
+                        1	action taken
+
+Reply code is transmitted in host byte-order.
