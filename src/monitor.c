@@ -369,19 +369,20 @@ static void handle_chld(void)
         break;
 
     case CHILD_TERM:
-        if (ctrl.active != -1) {
-            send_success(ctrl.active);
-            close(ctrl.active);
-            ctrl.active = -1;
-        }
-
         if (child.want.restart) {
             child.want.restart = 0;
             signal(SIGIO, SIG_DFL);
             raise(SIGIO);
 
             start_starting();
-            break;
+        }
+
+        if (ctrl.active != -1) {
+            send_success(ctrl.active);
+            close(ctrl.active);
+            ctrl.active = -1;
+
+            if (child.state != CHILD_TERM) break;
         }
 
         exit(0);
