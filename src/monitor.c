@@ -48,6 +48,10 @@ static struct {
     pid_t pid;
     int state, old_state;
     unsigned restarts;
+
+    struct {
+        int term, restart;
+    } want;
 } child;
 
 static struct {
@@ -154,7 +158,7 @@ static void handle_chld(void)
     int status;
 
     waitpid(child.pid, &status, WUNTRACED | WCONTINUED);
-    msg("%s terminated, status %d", child.name, status);
+    msg("%s status %d", child.name, status);
 
     if (WIFSTOPPED(status)) {
         msg("%s stopped", child.name);
@@ -177,6 +181,11 @@ static void handle_chld(void)
 
         case CHILD_TERM:
             alarm(term.grace);
+        }
+
+        if (child.want.term) {
+            child.want.term = 0;
+            raise(SIGTERM);
         }
 
         return;
@@ -221,6 +230,12 @@ static void handle_term(void)
 
     case CHILD_WAIT:
         exit(0);
+
+    case CHILD_STOPPED:
+        if (child.old_state == CHILD_TERM) return;
+
+        msg("cannot terminate stopped %s", child.name);
+        child.want.term = 1;
     }
 }
 
