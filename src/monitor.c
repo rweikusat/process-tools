@@ -290,7 +290,10 @@ static void handle_ctrl(void)
     if (sk != -1) {
         ctrl.active = sk;
         signal(SIGIO, SIG_IGN);
+        return;
     }
+
+    raise(SIGIO);               /* must keep accepting until EAGAIN */
 }
 
 static void handle_alrm(void)
