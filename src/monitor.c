@@ -313,6 +313,17 @@ static void handle_alrm(void)
 
     case CHILD_WAIT:
         start_starting();
+
+        if (child.want.restart) {
+            child.want.restart = 0;
+
+            send_success(ctrl.active);
+            close(ctrl.active);
+            ctrl.active = -1;
+
+            signal(SIGO, SIG_DFL);
+            raise(SIGO);
+        }
     }
 }
 
