@@ -56,7 +56,50 @@ struct ctrl_msg {
     unsigned cmd, data;
 };
 
+typedef void handler(void);
+
+struct handlers {
+    handler *alrm, *chld, *term;
+};
+
+/*  prototypes */
+static void child_running(void);
+static void respawn_child(void);
+static void term_child(void);
+static void start_starting(void);
+static void exit_monitor(void);
+static void kill_child(void);
+static void nop(void);
+static void restart_cmd(void);
+static void term_cmd(void);
+
 /*  variables */
+static struct handlers state_handlers[] = {
+    [CHILD_START] = {
+        .alrm = child_running,
+        .chld = respawn_child,
+        .term = term_child
+    },
+
+    [CHILD_RUN] = {
+        .chld = start_starting,
+        .term = term_child
+    },
+
+    [CHILD_WAIT] = {
+        .alrm = start_starting,
+        .term = exit_monitor
+    },
+
+    [CHILD_TERM] = {
+        .alrm = kill_child,
+        .chld = exit_monitor,
+        .term = nop
+    }
+};
+
+static struct handlers handlers;
+
 static struct {
     int listen, active;
 } ctrl = {
@@ -68,10 +111,6 @@ static struct {
     pid_t pid;
     int state, old_state;
     unsigned restarts;
-
-    struct {
-        int term, restart;
-    } want;
 } child;
 
 static struct {
@@ -96,17 +135,25 @@ static int my_sigs[] = {
     -1
 };
 
-static char *cmds[] = {
 #define n_(x) [x] = #x
 
+static char *cmds[] = {
     n_(CMD_STATUS),
     n_(CMD_TERM),
     n_(CMD_RESTART),
     n_(CMD_SIG),
     n_(CMD_REX)
+};
+
+static char *states[] = {
+    n_(CHILD_START),
+    n_(CHILD_RUN),
+    n_(CHILD_TERM),
+    n_(CHILD_WAIT),
+    n_(CHILD_STOPPED)
+};
 
 #undef n_
-};
 
 /*  routines */
 /**  misc */
@@ -139,15 +186,12 @@ static void start_cmd(void)
     msg("started %s, pid %ld", child.name, (long)child.pid);
 }
 
-static void start_starting(void)
+static void switch_state_to(int state)
 {
-    msg("starting %s", child.name);
+    child.state = state;
+    handlers = state_handlers[state];
 
-    child.state = CHILD_START;
-    child.restarts = 0;
-
-    alarm(START_WAIT);
-    start_cmd();
+    msg("%s: %s(%d)", __func__, states[state], state);
 }
 
 static int read_ctrl_msg(int sk, struct ctrl_msg *c_msg)
@@ -219,12 +263,12 @@ static void handle_ctrl(void)
         case CHILD_START:
         case CHILD_RUN:
         case CHILD_WAIT:
+        case CHILD_STOPPED:
             send_success(sk);
             break;
 
-        case CHILD_STOPPED:
-            if (child.want.term) send_fail(sk);
-            else send_success(sk);
+        default:
+            send_fail(sk);
         }
 
         close(sk);
@@ -237,15 +281,16 @@ static void handle_ctrl(void)
             exit(0);
         }
 
-        raise(SIGTERM);
+        term_child();
+        handlers.chld = term_cmd;
         break;
 
     case CMD_RESTART:
         switch (child.state) {
         case CHILD_START:
         case CHILD_RUN:
-            child.want.restart = 1;
-            raise(SIGTERM);
+            term_child();
+            handlers.chld = restart_cmd;
             break;
 
         case CHILD_TERM:
@@ -255,18 +300,8 @@ static void handle_ctrl(void)
             break;
 
         case CHILD_WAIT:
-            child.want.restart = 1;
+            handlers.alrm = restart_cmd;
             break;
-
-        case CHILD_STOPPED:
-            if (child.want.term) {
-                send_fail(sk);
-                close(sk);
-                sk = -1;
-                break;
-            }
-
-            child.want.restart = 1;
         }
         break;
 
@@ -296,35 +331,79 @@ static void handle_ctrl(void)
     raise(SIGIO);               /* must keep accepting until EAGAIN */
 }
 
-static void handle_alrm(void)
+static void start_starting(void)
 {
-    switch (child.state) {
-    case CHILD_START:
-        msg("%s running", child.name);
+    msg("starting %s", child.name);
 
-        child.restarts = 0;
-        child.state = CHILD_RUN;
-        break;
+    child.restarts = 0;
+    alarm(START_WAIT);
+    start_cmd();
 
-    case CHILD_TERM:
-        msg("%s didn't terminate after %us, killing", child.name, term.grace);
-        kill(-child.pid, SIGKILL);
-        break;
+    switch_state_to(CHILD_START);
+}
 
-    case CHILD_WAIT:
-        start_starting();
+static void child_running(void)
+{
+    msg("%s running", child.name);
 
-        if (child.want.restart) {
-            child.want.restart = 0;
+    child.restarts = 0;
+    switch_state_to(CHILD_RUN);
+}
 
-            send_success(ctrl.active);
-            close(ctrl.active);
-            ctrl.active = -1;
+static void respawn_child(void)
+{
+    if (child.restarts < MAX_RESTARTS) {
+        ++child.restarts;
+        start_cmd();
 
-            signal(SIGIO, SIG_DFL);
-            raise(SIGIO);
-        }
+        return;
     }
+
+    msg("%s respawning too fast, waiting 5s", child.name);
+
+    alarm(RESTART_WAIT);
+    switch_state_to(CHILD_WAIT);
+}
+
+static void term_child(void)
+{
+    msg("terminating %s", child.name);
+
+    kill(-child.pid, term.sig);
+    alarm(term.grace);
+    switch_state_to(CHILD_TERM);
+}
+
+static void exit_monitor(void)
+{
+    exit(0);
+}
+
+static void kill_child(void)
+{
+    msg("%s didn't terminate after %us, killing", child.name, term.grace);
+    kill(-child.pid, SIGKILL);
+}
+
+static void nop(void)
+{}
+
+static void term_cmd(void)
+{
+    send_success(ctrl.active);
+    exit(0);
+}
+
+static void restart_cmd(void)
+{
+    start_starting();
+
+    send_success(ctrl.active);
+    close(ctrl.active);
+    ctrl.active = -1;
+
+    signal(SIGIO, SIG_DFL);
+    raise(SIGIO);
 }
 
 static void handle_chld(void)
@@ -341,6 +420,12 @@ static void handle_chld(void)
         child.state = CHILD_STOPPED;
 
         alarm(0);
+        signal(SIGALRM, SIG_IGN); /* discard pending alarm */
+        signal(SIGALRM, SIG_DFL);
+
+        sigdelset(&sigs.handled, SIGTERM);
+        sigdelset(&sigs.handled, SIGINT);
+        sigdelset(&sigs.handled, SIGIO);
         return;
     }
 
@@ -357,75 +442,13 @@ static void handle_chld(void)
             alarm(term.grace);
         }
 
-        if (child.want.term) {
-            child.want.term = 0;
-            raise(SIGTERM);
-        }
-
+        sigaddset(&sigs.handled, SIGTERM);
+        sigaddset(&sigs.handled, SIGINT);
+        sigaddset(&sigs.handled, SIGIO);
         return;
     }
 
-    switch (child.state) {
-    case CHILD_START:
-        if (child.restarts < MAX_RESTARTS) {
-            ++child.restarts;
-            start_cmd();
-        } else {
-            msg("%s respawning too fast, waiting 5s", child.name);
-
-            child.state = CHILD_WAIT;
-            alarm(RESTART_WAIT);
-        }
-        break;
-
-    case CHILD_RUN:
-        start_starting();
-        break;
-
-    case CHILD_TERM:
-        if (child.want.restart) {
-            child.want.restart = 0;
-            signal(SIGIO, SIG_DFL);
-            raise(SIGIO);
-
-            start_starting();
-        }
-
-        if (ctrl.active != -1) {
-            send_success(ctrl.active);
-            close(ctrl.active);
-            ctrl.active = -1;
-        }
-
-        if (child.state == CHILD_TERM)
-            exit(0);
-    }
-}
-
-static void handle_term(void)
-{
-    switch (child.state) {
-    case CHILD_START:
-    case CHILD_RUN:
-        msg("terminating %s", child.name);
-
-        kill(-child.pid, term.sig);
-        child.state = CHILD_TERM;
-        alarm(term.grace);
-        break;
-
-    case CHILD_TERM:
-        break;
-
-    case CHILD_WAIT:
-        exit(0);
-
-    case CHILD_STOPPED:
-        if (child.old_state == CHILD_TERM) return;
-
-        msg("cannot terminate stopped %s", child.name);
-        child.want.term = 1;
-    }
+    handlers.chld();
 }
 
 /** ctrl socket creation */
@@ -593,7 +616,6 @@ static void init(int argc, char **argv)
     start_starting();
 }
 
-
 /*  main */
 int main(int argc, char **argv)
 {
@@ -608,7 +630,7 @@ int main(int argc, char **argv)
 
         switch (sig) {
         case SIGALRM:
-            handle_alrm();
+            handlers.alrm();
             break;
 
         case SIGCHLD:
@@ -616,15 +638,12 @@ int main(int argc, char **argv)
             break;
 
         case SIGINT:
-            handle_term();
+        case SIGTERM:
+            handlers.term();
             break;
 
         case SIGIO:
             handle_ctrl();
-            break;
-
-        case SIGTERM:
-            handle_term();
         }
     }
 
