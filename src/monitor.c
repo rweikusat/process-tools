@@ -321,8 +321,8 @@ static void handle_alrm(void)
             close(ctrl.active);
             ctrl.active = -1;
 
-            signal(SIGO, SIG_DFL);
-            raise(SIGO);
+            signal(SIGIO, SIG_DFL);
+            raise(SIGIO);
         }
     }
 }
