@@ -4,8 +4,9 @@ process-tools
 A collection of tools for process configuration and background process
 startup. 
 
-Basic tool set is complete now. Documentation and .deb-packaging will
-follow. 
+Running `make deb` in the top-level source directory can be used to
+build a Debian package. Documentation (beyond usage messages) is still
+missing but I'm planning to add that shortly.
 
 
 Implemented so far
