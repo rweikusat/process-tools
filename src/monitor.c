@@ -467,6 +467,14 @@ static void handle_ctrl(void)
         break;
 
     case CMD_REX:
+        if (child.state == CHILD_TERM) {
+            send_fail(sk);
+            close(sk);
+            sk = -1;
+            break;
+        }
+
+        send_success(sk);
         siglongjmp(rexec_jmp, 1);
     }
 
