@@ -51,6 +51,7 @@ enum {
 /*  macros */
 #define DEF_CTRL_PATH		"/run/__monitors__"
 #define CTRL_PATH_ENV		"MONITOR_CTRL_PATH"
+#define REX_ENV			"\x01\x02\x03herbei"
 
 /*  types */
 struct ctrl_msg {
@@ -650,10 +651,13 @@ int main(int argc, char **argv)
     int sig;
 
     if (sigsetjmp(rexec_jmp, 1) != 0) {
-        msg("re-exec not implemented");
+        char buf[128];
 
-        kill(-child.pid, 9);
-        exit(1);
+        sprintf(buf, "%d:%d", child.pid, child.state);
+        setenv(REX_ENV, buf, 1);
+        execvp(*argv, argv);
+
+        die("execvp");
     }
 
     init_diag("monitor");
