@@ -607,9 +607,14 @@ static void setup_sigs(void)
 /**  general init */
 static void restore_state(char *rex)
 {
-    sscanf(rex, "%d:%d", &child.pid, &child.state);
+    int state;
+
+    sscanf(rex, "%d:%d", &child.pid, &state);
+    switch_state_to(state);
+    if (state == CHILD_START) alarm(START_WAIT);
+
     msg("restored state, child pid %d, child state %s(%d)",
-        child.pid, states[child.state], child.state);
+        child.pid, states[state], state);
 }
 
 static void init(int argc, char **argv)
