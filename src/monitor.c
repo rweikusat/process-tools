@@ -70,8 +70,6 @@ static void start_starting(void);
 static void exit_monitor(void);
 static void kill_child(void);
 static void nop(void);
-static void restart_cmd(void);
-static void term_cmd(void);
 
 /*  variables */
 static struct handlers state_handlers[] = {
@@ -288,24 +286,6 @@ static void kill_child(void)
 static void nop(void)
 {}
 
-static void term_cmd(void)
-{
-    send_success(ctrl.active);
-    exit(0);
-}
-
-static void restart_cmd(void)
-{
-    start_starting();
-
-    send_success(ctrl.active);
-    close(ctrl.active);
-    ctrl.active = -1;
-
-    signal(SIGIO, SIG_DFL);
-    raise(SIGIO);
-}
-
 static void handle_chld(void)
 {
     int status;
@@ -371,6 +351,24 @@ static void send_success(int sk)
     msg("ctrl success");
 }
 
+static void finish_term_cmd(void)
+{
+    send_success(ctrl.active);
+    exit(0);
+}
+
+static void finish_restart_cmd(void)
+{
+    start_starting();
+
+    send_success(ctrl.active);
+    close(ctrl.active);
+    ctrl.active = -1;
+
+    signal(SIGIO, SIG_DFL);
+    raise(SIGIO);
+}
+
 static void handle_ctrl(void)
 {
     struct ctrl_msg c_msg;
@@ -415,7 +413,7 @@ static void handle_ctrl(void)
         }
 
         term_child();
-        handlers.chld = term_cmd;
+        handlers.chld = finish_term_cmd;
         break;
 
     case CMD_RESTART:
@@ -423,7 +421,7 @@ static void handle_ctrl(void)
         case CHILD_START:
         case CHILD_RUN:
             term_child();
-            handlers.chld = restart_cmd;
+            handlers.chld = finish_restart_cmd;
             break;
 
         case CHILD_TERM:
@@ -433,7 +431,7 @@ static void handle_ctrl(void)
             break;
 
         case CHILD_WAIT:
-            handlers.alrm = restart_cmd;
+            handlers.alrm = finish_restart_cmd;
             break;
         }
         break;
