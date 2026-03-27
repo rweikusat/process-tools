@@ -28,6 +28,9 @@ PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	sane-env \
 )
 
+TARGET :=	$(DESTDIR)/usr
+TARGET_BIN :=	$(TARGET)/bin
+
 #**  CFLAGS
 #
 CFLAGS := \
@@ -62,6 +65,10 @@ all: $(PRGS)
 
 deb:
 	fakeroot debian/rules binary
+
+install:
+	$(INST_X) -d $(TARGET_BIN)
+	$(INST_X) $(PRGS) $(TARGT_BIN)
 
 clean:
 	-rm tmp/*.o tmp/*.d
