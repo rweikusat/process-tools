@@ -255,11 +255,11 @@ static void respawn_child(void)
     if (child.restarts < MAX_RESTARTS) {
         ++child.restarts;
         start_cmd();
-
         return;
     }
 
-    msg("%s respawning too fast, waiting 5s", child.name);
+    msg("%s respawning too fast, waiting %us", child.name,
+        RESTART_WAIT);
 
     alarm(RESTART_WAIT);
     switch_state_to(CHILD_WAIT);
