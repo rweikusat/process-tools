@@ -657,7 +657,7 @@ static void init(int argc, char **argv)
     rex = getenv(REX_ENV);
     if (rex) {
         restore_state(rex);
-        unsetsenv(REX_ENV);
+        unsetenv(REX_ENV);
     } else
         start_starting();
 }
