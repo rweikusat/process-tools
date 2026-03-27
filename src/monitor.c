@@ -377,6 +377,7 @@ static void kill_restart(void)
 
     send_fail(ctrl.active);
     close(ctrl.active);
+    ctrl.active = -1;
 
     handlers.chld = exit_monitor;
 }
