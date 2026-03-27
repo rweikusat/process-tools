@@ -408,7 +408,6 @@ static void handle_ctrl(void)
         case CHILD_START:
         case CHILD_RUN:
         case CHILD_WAIT:
-        case CHILD_STOPPED:
             send_success(sk);
             break;
 
