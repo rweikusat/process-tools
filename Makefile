@@ -68,7 +68,7 @@ deb:
 
 install:
 	$(INST_X) -d $(TARGET_BIN)
-	$(INST_X) $(PRGS) $(TARGT_BIN)
+	$(INST_X) $(PRGS) $(TARGET_BIN)
 
 clean:
 	-rm tmp/*.o tmp/*.d
