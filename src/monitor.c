@@ -133,6 +133,8 @@ static int my_sigs[] = {
     -1
 };
 
+static sigjmp_buf rexec_jmp;
+
 #define n_(x) [x] = #x
 
 static char *cmds[] = {
@@ -642,6 +644,13 @@ static void init(int argc, char **argv)
 int main(int argc, char **argv)
 {
     int sig;
+
+    if (sigsetjmp(rexec_jmp, 1) != 0) {
+        msg("re-exec not implemented");
+
+        kill(-child.pid, 9);
+        exit(1);
+    }
 
     init_diag("monitor");
     init(argc, argv);
