@@ -372,6 +372,10 @@ static void finish_restart_cmd(void)
 static void kill_restart(void)
 {
     msg("killing restart");
+
+    send_fail(ctrl.active);
+    close(ctrl.active);
+
     handlers.chld = exit_monitor;
 }
 
