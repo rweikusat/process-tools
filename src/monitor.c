@@ -369,6 +369,12 @@ static void finish_restart_cmd(void)
     raise(SIGIO);
 }
 
+static void kill_restart(void)
+{
+    msg("killing restart");
+    handlers.chld = exit_monitor;
+}
+
 static void handle_ctrl(void)
 {
     struct ctrl_msg c_msg;
@@ -422,6 +428,7 @@ static void handle_ctrl(void)
         case CHILD_RUN:
             term_child();
             handlers.chld = finish_restart_cmd;
+            handlers.term = kill_restart;
             break;
 
         case CHILD_TERM:
