@@ -195,6 +195,41 @@ static void switch_state_to(int state)
     msg("%s: %s(%d)", __func__, states[state], state);
 }
 
+static void handle_stopped(void)
+{
+    msg("%s stopped", child.name);
+
+    child.old_state = child.state;
+    child.state = CHILD_STOPPED;
+
+    alarm(0);
+    signal(SIGALRM, SIG_IGN); /* discard pending alarm */
+    signal(SIGALRM, SIG_DFL);
+
+    sigdelset(&sigs.handled, SIGTERM);
+    sigdelset(&sigs.handled, SIGINT);
+    sigdelset(&sigs.handled, SIGIO);
+}
+
+static void handle_continued(void)
+{
+    msg("%s continued", child.name);
+
+    child.state = child.old_state;
+    switch (child.state) {
+    case CHILD_START:
+        alarm(START_WAIT);
+        break;
+
+    case CHILD_TERM:
+        alarm(term.grace);
+    }
+
+    sigaddset(&sigs.handled, SIGTERM);
+    sigaddset(&sigs.handled, SIGINT);
+    sigaddset(&sigs.handled, SIGIO);
+}
+
 /***  handlers */
 static void start_starting(void)
 {
@@ -279,37 +314,12 @@ static void handle_chld(void)
     msg("%s status %d", child.name, status);
 
     if (WIFSTOPPED(status)) {
-        msg("%s stopped", child.name);
-
-        child.old_state = child.state;
-        child.state = CHILD_STOPPED;
-
-        alarm(0);
-        signal(SIGALRM, SIG_IGN); /* discard pending alarm */
-        signal(SIGALRM, SIG_DFL);
-
-        sigdelset(&sigs.handled, SIGTERM);
-        sigdelset(&sigs.handled, SIGINT);
-        sigdelset(&sigs.handled, SIGIO);
+        handle_stopped();
         return;
     }
 
     if (WIFCONTINUED(status)) {
-        msg("%s continued", child.name);
-
-        child.state = child.old_state;
-        switch (child.state) {
-        case CHILD_START:
-            alarm(START_WAIT);
-            break;
-
-        case CHILD_TERM:
-            alarm(term.grace);
-        }
-
-        sigaddset(&sigs.handled, SIGTERM);
-        sigaddset(&sigs.handled, SIGINT);
-        sigaddset(&sigs.handled, SIGIO);
+        handle_continued();
         return;
     }
 
