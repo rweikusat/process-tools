@@ -1,4 +1,4 @@
-Source: uni-json
+Source: process-tools
 Section: unknown
 Priority: optional
 Maintainer: Rainer Weikusat <rweikusat@talktalk.net>
@@ -6,14 +6,19 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
 Standards-Version: 4.6.2
-Homepage: <insert the upstream URL, if relevant>
+Homepage: https://github.com/rweikusat/process-tools
 #Vcs-Browser: https://salsa.debian.org/debian/uni-json
 #Vcs-Git: https://salsa.debian.org/debian/uni-json.git
 
-Package: uni-json
+Package: process-tools
 Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
-Description: Universal JSON Library
- JSON library with support for arbitrary language/ environment bindings
+Description: Tools for process configuration and startup
+ A set of small programs supposed to be useful for starting background
+ processes. Conceptually, this is the anti-systemd package: Instead of
+ a huge program which does everything and rides roughshood over
+ anything, some small programs which all do exactly one thing and can
+ be integrated into everything, including systemd.
+ 
