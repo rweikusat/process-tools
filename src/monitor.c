@@ -522,7 +522,7 @@ static int create_ctrl(char *name, char *grp)
     move_to_ctrl_dir();
 
     sun.sun_family = AF_UNIX;
-    sprintf(sun.sun_path, ".tmp.%ld", (long)getpid());
+    sprintf(sun.sun_path, ".tmp.%d", getpid());
     rc = bind(sk, (struct sockaddr *)&sun,
               offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path) + 1);
     if (rc == -1) die("bind");
