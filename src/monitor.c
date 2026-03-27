@@ -398,6 +398,7 @@ static void handle_ctrl(void)
     rc = read_ctrl_msg(sk, &c_msg);
     if (rc == -1) {
         close(sk);
+        raise(SIGIO);
         return;
     }
 
