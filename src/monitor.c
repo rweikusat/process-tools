@@ -247,8 +247,6 @@ static void start_starting(void)
 static void child_running(void)
 {
     msg("%s running", child.name);
-
-    child.restarts = 0;
     switch_state_to(CHILD_RUN);
 }
 
