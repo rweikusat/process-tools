@@ -464,6 +464,9 @@ static void handle_ctrl(void)
         close(sk);
         sk = -1;
         break;
+
+    case CMD_REX:
+        siglongjmp(rexec_jmp, 1);
     }
 
     if (sk != -1) {
