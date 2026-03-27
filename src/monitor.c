@@ -166,7 +166,8 @@ static void usage(void)
     exit(1);
 }
 
-/**  signal handlers & helpers */
+/**  handlers & handler helpers */
+/***  helpers */
 static void start_cmd(void)
 {
     child.pid = fork();
@@ -194,6 +195,128 @@ static void switch_state_to(int state)
     msg("%s: %s(%d)", __func__, states[state], state);
 }
 
+/***  handlers */
+static void start_starting(void)
+{
+    msg("starting %s", child.name);
+
+    child.restarts = 0;
+    alarm(START_WAIT);
+    start_cmd();
+
+    switch_state_to(CHILD_START);
+}
+
+static void child_running(void)
+{
+    msg("%s running", child.name);
+
+    child.restarts = 0;
+    switch_state_to(CHILD_RUN);
+}
+
+static void respawn_child(void)
+{
+    if (child.restarts < MAX_RESTARTS) {
+        ++child.restarts;
+        start_cmd();
+
+        return;
+    }
+
+    msg("%s respawning too fast, waiting 5s", child.name);
+
+    alarm(RESTART_WAIT);
+    switch_state_to(CHILD_WAIT);
+}
+
+static void term_child(void)
+{
+    msg("terminating %s", child.name);
+
+    kill(-child.pid, term.sig);
+    alarm(term.grace);
+    switch_state_to(CHILD_TERM);
+}
+
+static void exit_monitor(void)
+{
+    exit(0);
+}
+
+static void kill_child(void)
+{
+    msg("%s didn't terminate after %us, killing", child.name, term.grace);
+    kill(-child.pid, SIGKILL);
+}
+
+static void nop(void)
+{}
+
+static void term_cmd(void)
+{
+    send_success(ctrl.active);
+    exit(0);
+}
+
+static void restart_cmd(void)
+{
+    start_starting();
+
+    send_success(ctrl.active);
+    close(ctrl.active);
+    ctrl.active = -1;
+
+    signal(SIGIO, SIG_DFL);
+    raise(SIGIO);
+}
+
+static void handle_chld(void)
+{
+    int status;
+
+    waitpid(child.pid, &status, WUNTRACED | WCONTINUED);
+    msg("%s status %d", child.name, status);
+
+    if (WIFSTOPPED(status)) {
+        msg("%s stopped", child.name);
+
+        child.old_state = child.state;
+        child.state = CHILD_STOPPED;
+
+        alarm(0);
+        signal(SIGALRM, SIG_IGN); /* discard pending alarm */
+        signal(SIGALRM, SIG_DFL);
+
+        sigdelset(&sigs.handled, SIGTERM);
+        sigdelset(&sigs.handled, SIGINT);
+        sigdelset(&sigs.handled, SIGIO);
+        return;
+    }
+
+    if (WIFCONTINUED(status)) {
+        msg("%s continued", child.name);
+
+        child.state = child.old_state;
+        switch (child.state) {
+        case CHILD_START:
+            alarm(START_WAIT);
+            break;
+
+        case CHILD_TERM:
+            alarm(term.grace);
+        }
+
+        sigaddset(&sigs.handled, SIGTERM);
+        sigaddset(&sigs.handled, SIGINT);
+        sigaddset(&sigs.handled, SIGIO);
+        return;
+    }
+
+    handlers.chld();
+}
+
+/**  ctrl message handling */
 static int read_ctrl_msg(int sk, struct ctrl_msg *c_msg)
 {
     uint8_t raw[4];
@@ -329,126 +452,6 @@ static void handle_ctrl(void)
     }
 
     raise(SIGIO);               /* must keep accepting until EAGAIN */
-}
-
-static void start_starting(void)
-{
-    msg("starting %s", child.name);
-
-    child.restarts = 0;
-    alarm(START_WAIT);
-    start_cmd();
-
-    switch_state_to(CHILD_START);
-}
-
-static void child_running(void)
-{
-    msg("%s running", child.name);
-
-    child.restarts = 0;
-    switch_state_to(CHILD_RUN);
-}
-
-static void respawn_child(void)
-{
-    if (child.restarts < MAX_RESTARTS) {
-        ++child.restarts;
-        start_cmd();
-
-        return;
-    }
-
-    msg("%s respawning too fast, waiting 5s", child.name);
-
-    alarm(RESTART_WAIT);
-    switch_state_to(CHILD_WAIT);
-}
-
-static void term_child(void)
-{
-    msg("terminating %s", child.name);
-
-    kill(-child.pid, term.sig);
-    alarm(term.grace);
-    switch_state_to(CHILD_TERM);
-}
-
-static void exit_monitor(void)
-{
-    exit(0);
-}
-
-static void kill_child(void)
-{
-    msg("%s didn't terminate after %us, killing", child.name, term.grace);
-    kill(-child.pid, SIGKILL);
-}
-
-static void nop(void)
-{}
-
-static void term_cmd(void)
-{
-    send_success(ctrl.active);
-    exit(0);
-}
-
-static void restart_cmd(void)
-{
-    start_starting();
-
-    send_success(ctrl.active);
-    close(ctrl.active);
-    ctrl.active = -1;
-
-    signal(SIGIO, SIG_DFL);
-    raise(SIGIO);
-}
-
-static void handle_chld(void)
-{
-    int status;
-
-    waitpid(child.pid, &status, WUNTRACED | WCONTINUED);
-    msg("%s status %d", child.name, status);
-
-    if (WIFSTOPPED(status)) {
-        msg("%s stopped", child.name);
-
-        child.old_state = child.state;
-        child.state = CHILD_STOPPED;
-
-        alarm(0);
-        signal(SIGALRM, SIG_IGN); /* discard pending alarm */
-        signal(SIGALRM, SIG_DFL);
-
-        sigdelset(&sigs.handled, SIGTERM);
-        sigdelset(&sigs.handled, SIGINT);
-        sigdelset(&sigs.handled, SIGIO);
-        return;
-    }
-
-    if (WIFCONTINUED(status)) {
-        msg("%s continued", child.name);
-
-        child.state = child.old_state;
-        switch (child.state) {
-        case CHILD_START:
-            alarm(START_WAIT);
-            break;
-
-        case CHILD_TERM:
-            alarm(term.grace);
-        }
-
-        sigaddset(&sigs.handled, SIGTERM);
-        sigaddset(&sigs.handled, SIGINT);
-        sigaddset(&sigs.handled, SIGIO);
-        return;
-    }
-
-    handlers.chld();
 }
 
 /** ctrl socket creation */
