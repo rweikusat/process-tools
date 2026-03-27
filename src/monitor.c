@@ -605,9 +605,16 @@ static void setup_sigs(void)
 }
 
 /**  general init */
+static void restore_state(char *rex)
+{
+    sscanf(rex, "%d:%d", &child.pid, &child.state);
+    msg("restored state, child pid %d, child state %s(%d)",
+        child.pid, states[child.state], child.state);
+}
+
 static void init(int argc, char **argv)
 {
-    char *ctrl_grp;
+    char *ctrl_grp, *rex;
     int c;
 
     ctrl_grp = NULL;
@@ -642,7 +649,12 @@ static void init(int argc, char **argv)
     if (!child.name) child.name = *child.cmdv;
     ctrl.listen = create_ctrl(child.name, ctrl_grp);
 
-    start_starting();
+    rex = getenv(REX_ENV);
+    if (rex) {
+        restore_state(rex);
+        unsetsenv(REX_ENV);
+    } else
+        start_starting();
 }
 
 /*  main */
