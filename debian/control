@@ -1,0 +1,19 @@
+Source: uni-json
+Section: unknown
+Priority: optional
+Maintainer: Rainer Weikusat <rweikusat@talktalk.net>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+Standards-Version: 4.6.2
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Browser: https://salsa.debian.org/debian/uni-json
+#Vcs-Git: https://salsa.debian.org/debian/uni-json.git
+
+Package: uni-json
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Universal JSON Library
+ JSON library with support for arbitrary language/ environment bindings
