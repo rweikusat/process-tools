@@ -134,6 +134,32 @@ static int connect_to(char *instance)
     return sk;
 }
 
+static void send_cmd(int sk, unsigned cmd, unsigned arg)
+{
+    uint8_t cmd_msg[4];
+    ssize_t rc;
+
+    *cmd_msg = 1;
+    cmd_msg[1] = cmd;
+    cmd_msg[2] = arg;
+    cmd_msg[3] = arg >> 8;
+
+    rc = write(sk, cmd_msg, sizeof(cmd_msg));
+    if (rc == -1) die("write");
+}
+
+static unsigned read_reply(int sk)
+{
+    uint8_t rp[4];
+    ssize_t rc;
+
+    rc = read(sk, rp, sizeof(rp));
+    if (rc == -1) die("read");
+
+    if (!quiet) msg(*rp ? "OK" : "FAILED");
+    return *rp;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -145,7 +171,7 @@ int main(int argc, char **argv)
 
     sk = connect_to(the_cmd->instance);
     send_cmd(sk, the_cmd->cmd, the_cmd->arg);
-    rp = read_reply(rp);
+    rp = read_reply(sk);
 
     return rp ? 0 : 1
 }
