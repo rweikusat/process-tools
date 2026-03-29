@@ -25,6 +25,7 @@ D_PRGS :=		$(addprefix bin/, \
 
 PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	ch-dir \
+	monitor-ctrl \
 	sane-env \
 )
 
@@ -75,6 +76,7 @@ clean:
 	-rm bin/*
 
 bin/ch-dir: tmp/ch_dir.o
+bin/monitor-ctrl: tmp/monitor_ctrl.o
 bin/sane-env: tmp/sane_env.o
 
 $(D_PRGS) : bin/% : tmp/%.o
