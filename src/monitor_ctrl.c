@@ -52,7 +52,7 @@ static int quiet;
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: monitor-ctrl [-q] <instance> status|terminate|restart|signal|rexec [<arg>]");
+    msg("Usage: monitor-ctrl [-q] <instance> status|stop|restart|signal|rexec [<arg>]");
     exit(1);
 }
 
@@ -104,13 +104,48 @@ static void parse_args(int argc, char **argv, struct the_cmd *the_cmd)
     the_cmd->arg = *argv ? atoi(*argv) : 0;
 }
 
+static int connect_to(char *instance)
+{
+    struct sockaddr_un sun;
+    size_t path_len, total;
+    char *path;
+    int sk, rc;
+
+    path = getenv(CTRL_PATH_ENV);
+    if (!path) path = DEF_CTRL_PATH;
+    path_len = strlen(path);
+    total = path_len + strlen(instance) + 2;
+    if (total > sizeof(sun.sun_path)) {
+        err("instance path too long (max %zu)", sizeof(sun.sun_path));
+        exit(1);
+    }
+    sun.sun_family = AF_UNIX;
+    memcpy(sun.sun_path, path, path_len);
+    sun.sun_path[path_len] = '/';
+    strcpy(sun.sun_path + path_len + 1, instance);
+
+    sk = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sk == -1) die("socket");
+
+    rc = connect(sk, (struct sockaddr *)&sun,
+                 offsetof(struct sockaddr_un, sun_path) + total);
+    if (rc == -1) die("connect");
+
+    return sk;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
     struct the_cmd the_cmd;
+    int sk, rp;
 
     init_diag("monitor-ctrl");
     parse_args(argc, argv, &the_cmd);
 
-    return 0;
+    sk = connect_to(the_cmd->instance);
+    send_cmd(sk, the_cmd->cmd, the_cmd->arg);
+    rp = read_reply(rp);
+
+    return rp ? 0 : 1
 }
