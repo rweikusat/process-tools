@@ -23,7 +23,7 @@ struct the_cmd {
 
 /*  variables */
 static struct cmd cmds[] = {
-    (
+    {
         .name = "status",
         .val = CMD_STATUS },
 
@@ -37,7 +37,7 @@ static struct cmd cmds[] = {
 
     {
         .name = "signal",
-        .val = CMD_SIGNAL },
+        .val = CMD_SIG },
 
     {
         .name = "rexec",
@@ -56,7 +56,7 @@ static void usage(void)
     exit(1);
 }
 
-static void find_cmd(char *name)
+static int find_cmd(char *name)
 {
     struct cmd *pcmd;
     size_t n_len;
