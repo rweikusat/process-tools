@@ -28,7 +28,7 @@ static struct cmd cmds[] = {
         .val = CMD_STATUS },
 
     {
-        .name = "terminate",
+        .name = "stop",
         .val = CMD_TERM },
 
     {
@@ -65,7 +65,7 @@ static int find_cmd(char *name)
     n_len = strlen(name);
     pcmd = cmds;
     cmd = -1;
-    while (*pcmd->name) {
+    while (pcmd->name) {
         if (strncmp(name, pcmd->name, n_len) == 0) {
             if (cmd != -1) {
                 msg("%s: ambiguous abbreviation", name);
