@@ -153,7 +153,21 @@ static void usage(void)
     msg("Usage: monitor [-g <ctrl socket group>] "
         "[-n <name>] "
         "[-p <term grace period>] "
-        "[-t <termsig>]");
+        "[-t <termsig>] <cmd> <arg>*");
+    msg("    Execute a command as monitored process which will be restarted");
+    msg("    automatically whenever it terminated. Additionally, provide an");
+    msg("    AF_UNIX stream socket which enables manageing the monitored process");
+    msg("    and the monitor process itself.");
+    msg("    If -g is given, this socket will have a mode of 0660 and it's group ");
+    msg("    will be the provided group. Otherwise, the socket mode will be 0600.");
+    msg("    The -n option can be used to provide a name other than <cmd> for this");
+    msg("    socket.");
+    msg("    When terminating the monitored process, a termination signal will be sent");
+    msg("    to it. If it hasn't terminated after the termination grace period specified");
+    msg("    via -p (default 20s) has elapsed, it will be killed (SIGKILL).");
+    msg("    The -t option can be used to request to use another termination signal than");
+    msg("    SIGTERM (numeric only)");
+
     exit(1);
 }
 

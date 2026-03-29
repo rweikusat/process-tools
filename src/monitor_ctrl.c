@@ -3,8 +3,12 @@
 */
 
 /*  includes */
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -53,6 +57,14 @@ static int quiet;
 static void usage(void)
 {
     msg("Usage: monitor-ctrl [-q] <instance> status|stop|restart|signal|rexec [<arg>]");
+    msg("    Manage a monitored or a monitor process named <instance>.");
+    msg("    The status, stop, restart and signal commands perform the corresponding");
+    msg("    actions on the monitored process. The rexec command cause the monitor");
+    msg("    process to re-exec itself to enable in-place updates.");
+    msg("    The -q option can be used to suppress success/failure output.");
+    msg("    The exit status of the program will reflect success or failure of");
+    msg("    the requested operation.");
+
     exit(1);
 }
 
@@ -169,9 +181,9 @@ int main(int argc, char **argv)
     init_diag("monitor-ctrl");
     parse_args(argc, argv, &the_cmd);
 
-    sk = connect_to(the_cmd->instance);
-    send_cmd(sk, the_cmd->cmd, the_cmd->arg);
+    sk = connect_to(the_cmd.instance);
+    send_cmd(sk, the_cmd.cmd, the_cmd.arg);
     rp = read_reply(sk);
 
-    return rp ? 0 : 1
+    return rp ? 0 : 1;
 }

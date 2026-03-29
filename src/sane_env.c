@@ -67,8 +67,15 @@ extern char **environ;
 static void usage(void)
 {
     msg("Usage: sane-env [-k <keep>] [-s <set>] <cmd> <arg>*");
-    msg("    Both options can appear any number of times. Keep arguments name vars to keep.");
-    msg("    Set arguments must be of the form <name>=<value>. Will be added.");
+    msg("    Exectute a command with a sanitized environment. By default, all");
+    msg("    inherited environment variables will be discarded. The environment");
+    msg("    variables HOME, LOGNAME and USER will be set to the proper values for");
+    msg("    the uid of the process and PATH will be set to a sensible default path.");
+    msg("    The -k option can be used to request that certain variables of the ");
+    msg("    inherited are kept. Can be used any number of times.");
+    msg("    Additional variables can be added by provding -s options taking a");
+    msg("    <name>=value pair as argument.");
+
     exit(1);
 }
 

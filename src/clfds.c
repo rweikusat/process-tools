@@ -36,6 +36,9 @@ static struct keep std_keeps[3] = {
 static void usage(void)
 {
     msg("Usage: clfds [-k <fd>[,<fd>]* <cmd> <args>*");
+    msg("    Close all open file descriptors except 0, 1 and 2 and any");
+    msg("    additional file descriptor specified via -k and run a command.");
+
     exit(1);
 }
 

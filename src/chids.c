@@ -20,6 +20,11 @@ struct substr {
 static void usage(void)
 {
     msg("Usage: chids [-g <group>] [-s <group>[:<group>*] [-u <user>] <cmd> <arg>*");
+    msg("    Execute a command with different uid, gid and supplementary groups list.");
+    msg("    If a user was specificed via -u, the process gid will be set to the primary");
+    msg("    group of this user unless -g was also provided and the supplementary groups");
+    msg("    list will be initialized as for this user unless -s was also provided.");
+
     exit(1);
 }
 

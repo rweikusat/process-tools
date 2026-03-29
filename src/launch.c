@@ -13,6 +13,10 @@
 static void usage(void)
 {
     msg("Usage: launch [-n <name>] <cmd> <arg>*");
+    msg("    Execute a command as background process with file descriptors");
+    msg("    0, 1 and 2 connected to /dev/null. The -n option can be used to");
+    msg("    provide a command name for log messages.");
+
     exit(1);
 }
 

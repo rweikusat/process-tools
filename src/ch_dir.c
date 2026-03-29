@@ -17,6 +17,7 @@ int main(int argc, char **argv)
 
     if (argc < 3) {
         msg("Usage: ch-dir <directory> <cmd> <arg>*");
+        msg("    Change current directory and execute a command.");
         exit(1);
     }
 
