@@ -17,4 +17,5 @@ Implemented so far
 - clfds	-- close open file descriptors and run a command
 - launch -- execute a command as background process
 - monitor -- start a monitored process
+- monitor-ctrl -- send control messages to a monitor instance
 - sane-env -- execute a command with a sanitized environment
