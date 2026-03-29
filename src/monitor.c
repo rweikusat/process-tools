@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include "diag.h"
+#include "monitor_ctrl.h"
 
 /*  constants */
 enum {
@@ -49,8 +50,6 @@ enum {
 };
 
 /*  macros */
-#define DEF_CTRL_PATH		"/run/__monitors__"
-#define CTRL_PATH_ENV		"MONITOR_CTRL_PATH"
 #define REX_ENV			"\x01\x02\x03herbei"
 
 /*  types */
