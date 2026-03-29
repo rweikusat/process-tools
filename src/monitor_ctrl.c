@@ -4,6 +4,7 @@
 
 /*  includes */
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -43,7 +44,7 @@ static struct cmd cmds[] = {
         .val = CMD_REX },
 
     {
-        ,name = NULL }
+        .name = NULL }
 };
 
 static int quiet;
@@ -53,6 +54,32 @@ static void usage(void)
 {
     msg("Usage: monitor-ctrl [-q] <instance> status|terminate|restart|signal|rexec [<arg>]");
     exit(1);
+}
+
+static void find_cmd(char *name)
+{
+    struct cmd *pcmd;
+    size_t n_len;
+    int cmd;
+
+    n_len = strlen(name);
+    pcmd = cmds;
+    cmd = -1;
+    while (*pcmd->name) {
+        if (strncmp(name, pcmd->name, n_len) == 0) {
+            if (cmd != -1) {
+                msg("%s: ambiguous abbreviation", name);
+                return -1;
+            }
+
+            cmd = pcmd->val;
+        }
+
+        ++pcmd;
+    }
+
+    if (cmd == -1) msg("%s: unrecognized command", name);
+    return cmd;
 }
 
 static void parse_args(int argc, char **argv, struct the_cmd *the_cmd)
