@@ -39,16 +39,6 @@ enum {
     CHILD_STOPPED
 };
 
-enum {
-    CMD_STATUS,
-    CMD_TERM,
-    CMD_RESTART,
-    CMD_SIG,
-    CMD_REX,
-
-    N_CMDS
-};
-
 /*  macros */
 #define REX_ENV			"\x01\x02\x03herbei"
 
