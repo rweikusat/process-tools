@@ -40,9 +40,10 @@ CFLAGS := \
 	-Wno-implicit-fallthrough \
 	-Wno-pointer-sign \
 	-Wno-sign-compare \
+	-Wno-unused-result \
 	-fno-inline-functions \
-	-fno-inline-functions-called-once
-	-fno-inline-small-functions, \
+	-fno-inline-functions-called-once \
+	-fno-inline-small-functions \
 	-g \
 
 ifndef DEV
