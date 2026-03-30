@@ -35,15 +35,15 @@ TARGET_BIN :=	$(TARGET)/bin
 #**  CFLAGS
 #
 CFLAGS := \
-	-g \
 	-W \
 	-Wall \
+	-Wno-implicit-fallthrough \
 	-Wno-pointer-sign \
 	-Wno-sign-compare \
-	-Wno-implicit-fallthrough \
 	-fno-inline-functions \
-	-fno-inline-small-functions \
 	-fno-inline-functions-called-once
+	-fno-inline-small-functions, \
+	-g \
 
 ifndef DEV
 CFLAGS :=	-O2 $(CFLAGS)
