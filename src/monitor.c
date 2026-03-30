@@ -585,8 +585,10 @@ err:
 }
 
 /**  signal setup */
-static void dummy_handler(int)
-{}
+static void dummy_handler(int unused)
+{
+    (void)unused;
+}
 
 static void enable_chld(void)
 {
