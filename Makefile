@@ -99,5 +99,5 @@ tmp/%.o: src/%.c tmp/%.d
 bin/%: tmp/diag.o
 	$(LD) -o $@ $^
 
-doc/%.1: doc/%.pod
+doc/%.1: doc/%.pod debian/changelog
 	pod2man -c 'User Commands' -r "$(call man-ver)" $< >$@
