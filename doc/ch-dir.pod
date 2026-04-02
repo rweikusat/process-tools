@@ -1,156 +1,18 @@
 =head1 NAME
 
-uni-json - A C JSON parser and serializer designed to be usable in any runtime environment
+ch-dir - Change current working directory and execute a command
 
 =head1 SYNOPSIS
 
- #include <uni_json_paser.h>
-
- char *uni_json_ec_2_msg(unsigned ec);
- void *uni_json_parse(uint8_t *data, size_t len, unsigned max_nesting,
-                      struct uni_json_p_binding *binds, void *err_p);
-
- #include <uni_json_serializer.h>
-
- void uni_json_serialize(void *val, void *sink, struct uni_json_s_binding *binds,
-                        int fmt);
+ ch-dir <directory> <cmd> <arg>*
 
 =head1 DESCRIPTION
 
-Uni-json (for "universal") is a JSON parsing and serializing library written in C that's
-designed to be independent of (and thus, usable in) any particular execution environment
-by delegating all memory and object management tasks to "someonew else" via a set
-of callbacks implementing defined, abstract actions (see L<uni-json-parser-bindings(3)> and
-L<uni-json-serialize-bindings(3)> for details). Further design goals are simplicity  and speed, in that order.
-The code should be easy enough to understand that one can be reasonably confident that it actually works instead
-of trying to shave off every couple of nanoseconds which could be saved somewhere. In
-particular, this means both parser and serializer utilize recursive descent for nested structures and
-utilize table-lookups to call functions dedicated to handling particular syntactical constructs
-indirectly.
+Change the current working directory to C<directory> and execute the
+command C<cmd>.
 
-=head2 Functions
+=head1 NOTES
 
-=over
-
-=item * C<void *uni_json_parse(uint8_t *data, size_t len, unsigned max_nesting, struct uni_json_p_binding *binds, void *err_p)>
-
-Parse B<len> bytes of JSON text starting at B<data> using the parser bindings passed
-via B<binds> for object creation and management. Returns a pointer to a data object
-representing the JSON value found in the text or B<NULL> on error. For the latter case,
-the B<on_error> handler passed via B<binds> will be invoked with an error code and the
-position of the error in the input text. The B<err_p> argument is passed through to
-error handling routine. The parser will descent at most B<max_nesting> levels deep into
-nested structures before aborting with an error. This is intended to limit the amount
-of stack space used by it when dealing with data from untrusted sources. Use -1 (aka B<UINT_MAX>)
-to disable this check.
-
-I<The text pointed to by B<data> is not expected to be a valid C string. Embedded null bytes
-will be handled correctly, that is, flagged as JSON syntax errors.>
-
-=item * C<char *uni_json_ec_2_msg(unsigned ec)>
-
-Map the error code passeed as B<ec> to a standard (English) text message.
-
-=item * C<void json_serialize(void *val, void *sink, struct uni_json_s_binding *binds, int fmt)>
-
-Serialize the object B<val> to the ouput sink B<sink> using the callbacks specified in the
-structure B<binds> points to. The CBfmt> argument can be used to select one of three
-different output formats for objects (holding key-value pairs) and arrays. B<UJ_FMT_FAST>, the
-default, serializes objects and arrays with no additional processing or formatting just
-as the corresponding callbacks return their content values or content key-value pairs.
-B<UJ_FMT_DET> uses I<deterministic> serialization for objects. The keys are sorted using
-locale-blind codepoint comparions before serialization. Key-value pairs will thus
-always be serialized in the same order regardless of the order they were returned in
-by the object traversal callback. The B<UJ_FMT_PRETTY> format adds redundant whitespace
-when serializing object and arrays to make the resulting text easier to read for
-humans.
-
-=back
-
-=head2 Parser Error Codes
-
-=over
-
-=item * B<UJ_E_INV>
-
-A character which cannot start a token was
-encountered when looking for a JSON value.
-
-=item * B<UJ_E_NO_VAL>
-
-No JSON value was found in a situation where one was expected. This can
-either happen because the text passed to B<uni_json_parse> didn't contain
-a JSON value at all (empty or only whitespace) or because text representing
-an JSON array or object ended with a separator without a value behind it.
-
-=item * B<UJ_E_INV_LIT>
-
-An invalid literal string was encountered, ie one with was neither B<false> nor
-B<null> nor B<true>.
-
-=item * B<UJ_E_GARBAGE>
-
-The JSON text passed to B<uni_json_parse> contained text beyond  a single JSON value
-possibly surrounded by whitespace.
-
-=item * B<UJ_E_EOS>
-
-The parser hit the end of the input text before the JSON value
-being parsed was complete (eg, an array not ending with C<]>).
-
-=item * B<UJ_E_INV_IN>
-
-An invalid character was encountered while parsing a JSON value, eg,
-because of an object using C<,> instead of C<:> between a key and the associated
-value.
-
-=item * B<UJ_E_ADD>
-
-A binding routine supposed to add data to a string or a value to
-an array or a key-value-pair to an object returned an error
-indicator.
-
-=item * B<UJ_E_LEADZ>
-
-The integral part of a number other than 0 started with a B<0> character.
-
-=item * B<UJ_E_NO_DGS>
-
-Some part of a number (integral, fractional or exponent) didn't
-contain any digits.
-
-=item * B<UJ_E_INV_CHAR>
-
-A literal control character was found in a string.
-
-=item * B<UJ_E_INV_UTF8>
-
-An invalid UTF-8 sequences was encountered in a string.
-
-=item * B<UJ_E_INV_ESC>
-
-An invalid escape sequences was found in a string.
-
-=item * B<UJ_E_INV_KEY>
-
-A JSON value in the key position of a key-value-pair in an
-object wasn't a string.
-
-=item * B<UJ_E_NO_KEY>
-
-A JSON object was missing a key in a position where one
-should have appeared.
-
-=item * B<UJ_E_TOO_DEEP>
-
-The parser exceeded the nesting limit set via C<uni_json_max_nesting>.
-
-=item * B<UJ_E_MAKE>
-
-The parser failed to create an object to store a value about to be parsed.
-
-=back
-
-=head1 SEE ALSO
-
-L<uni-json-parser-bindings(3)>
+The I<ash> shell has an undocumented builtin called C<chdir> that's
+identical to C<cd>. Because of this, this command has been named
+C<ch-dir>.
