@@ -57,6 +57,10 @@ endif
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
 
+#**  functions
+#
+man-ver = $(shell sed -n 's/^\([^ ]* [^ ]*\) .*/\1/g; s/[()]//g; p; q' debian/changelog)
+
 #*  targets
 #
 .PHONY: all clean install deb
@@ -74,6 +78,7 @@ install:
 clean:
 	-rm tmp/*.o tmp/*.d
 	-rm bin/*
+	-rm $(MANS)
 
 bin/ch-dir: tmp/ch_dir.o
 bin/monitor-ctrl: tmp/monitor_ctrl.o
@@ -95,4 +100,4 @@ bin/%: tmp/diag.o
 	$(LD) -o $@ $^
 
 doc/%.1: doc/%.pod
-	pod2man -c 'User Commands' $< >$@
+	pod2man -c 'User Commands' -r "$(call man-ver)" $< >$@
