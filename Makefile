@@ -57,9 +57,6 @@ endif
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
 
-#**  lib version
-#
-
 #*  targets
 #
 .PHONY: all clean install deb
