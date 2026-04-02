@@ -1,0 +1,21 @@
+=head1 NAME
+
+clds - Close open file descriptors and execute a command
+
+=head1 SYNOPSIS
+
+ clfds [-k <df>[,<fd>*]] <cmd> <arg>*
+
+=head1 DESCRIPTION
+
+Closes all open file descriptors except 0, 1 and 2 and execute C<cmd>.
+
+=head1 OPTIONS
+
+=over
+
+=item B<-k I<fd[,fd*]>>
+
+Comma-separated list of file descriptors which should also remain open.
+
+=back
