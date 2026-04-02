@@ -29,7 +29,8 @@ PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	sane-env \
 )
 
-MANS := $(addprefix doc/, $(addsuffix .1, $(notdir $(PRGS))))
+PODS := $(shell ls doc/*.pod)
+MANS := $(PODS:.pod=.1)
 
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
