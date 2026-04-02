@@ -1,18 +1,42 @@
 =head1 NAME
 
-ch-dir - Change current working directory and execute a command
+chids - Execute a command with different uid, gid and supplementary groups list
 
 =head1 SYNOPSIS
 
- ch-dir <directory> <cmd> <arg>*
+ chids [-g <group>] [-s <group>[:<group>*] [-u <user>] <cmd> <arg>*
 
 =head1 DESCRIPTION
 
-Change the current working directory to C<directory> and execute the
-command C<cmd>.
+Execute the command C<cmd> after possibly changing the user id, group
+id and supplmentary groups list of the current process.
 
-=head1 NOTES
+=over
 
-The I<ash> shell has an undocumented builtin called C<chdir> that's
-identical to C<cd>. Because of this, this command has been named
-C<ch-dir>.
+=item B<-g I<group>>
+
+Change the group id of the current process to I<group>. If I<group>
+cannot be found in the system group database, it's converted to a
+number via C<atoi> and the result used as group id.
+
+Clears the supplementary group list of the process.
+
+=item B<-s I<group[:group*]>>
+
+Set the supplementary group list of the process to the colon-separated
+list of groups passed as argument. Handles anything not in the system
+group database like B<-g> does.
+
+=item B<-u I<user>>
+
+Set the user id of the process to I<user>. If I<user> cannot be found
+in the system user database, it's converted to a number via C<atoi>
+and the result used as user id.
+
+If B<-g> wasn't also provided, set the group id of the process to the
+primary group of I<user>.
+
+If B<-s> wasn't also provided, set the supplementary group list of the
+process to the supplementary groups of I<user>.
+
+=back
