@@ -29,6 +29,8 @@ PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	sane-env \
 )
 
+MANS := $(addprefix doc/, $(addsuffix .1, $(notdir $(PRGS))))
+
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
 
@@ -44,7 +46,7 @@ CFLAGS := \
 	-fno-inline-functions \
 	-fno-inline-functions-called-once \
 	-fno-inline-small-functions \
-	-g \
+	-g
 
 ifndef DEV
 CFLAGS :=	-O2 $(CFLAGS)
@@ -63,7 +65,7 @@ TARGET_BIN :=	$(TARGET)/bin
 .PHONY: all clean install deb
 .PRECIOUS: tmp/diag.o
 
-all: $(PRGS)
+all: $(PRGS) $(MANS)
 
 deb:
 	fakeroot debian/rules binary
@@ -94,3 +96,6 @@ tmp/%.o: src/%.c tmp/%.d
 
 bin/%: tmp/diag.o
 	$(LD) -o $@ $^
+
+doc/%.1: doc/%.pod
+	pod2man -c 'User Commands' $< >$@
