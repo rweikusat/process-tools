@@ -1,0 +1,18 @@
+=head1 NAME
+
+ch-dir - Change current working directory and execute a command
+
+=head1 SYNOPSIS
+
+ ch-dir <directory> <cmd> <arg>*
+
+=head1 DESCRIPTION
+
+Change the current working directory to C<directory> and execute the
+command C<cmd>.
+
+=head1 NOTES
+
+The I<ash> shell has an undocumented builtin called C<chdir> that's
+identical to C<cd>. Because of this, this command has been named
+C<ch-dir>.
