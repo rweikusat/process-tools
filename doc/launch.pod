@@ -1,21 +1,21 @@
 =head1 NAME
 
-clds - Close open file descriptors and execute a command
+launch - Execute a command as background process.
 
 =head1 SYNOPSIS
 
- clfds [-k <df>[,<fd>*]] <cmd> <arg>*
+ launch [-n <name>] <cmd> <arg>*
 
 =head1 DESCRIPTION
 
-Closes all open file descriptors except 0, 1 and 2 and execute C<cmd>.
+Execute C<cmd> in a forked process with file descriptors 0, 1 and 2 open and connected to I</dev/null>.
 
 =head1 OPTIONS
 
 =over
 
-=item B<-k I<fd[,fd*]>>
+=item B<-n I<name>>
 
-Comma-separated list of file descriptors which should also remain open.
+Set command name for logging purposes, If omitted, C<cmd> will be used as command name.
 
 =back
