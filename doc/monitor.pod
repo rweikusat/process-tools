@@ -1,11 +1,85 @@
 =head1 NAME
 
+monitor - run a command under control of a supervisor
+
 =head1 SYNOPSIS
 
+ monitor [-g <ctrl socket group>] [-n <name>] [-p <term grace period>] [-t <termsig>] <cmd> <arg>*
+
 =head1 DESCRIPTION
+
+Runs C<cmd> under control of a supervisor. It'll be started in a
+forked process and will be restarted whenever it terminated. If the
+command keeps terminating quickly, that is, within less than 10s. a 5s
+restart pause will be made after 5 restarts.
+
+The supervisor will also create a I<AF_UNIX> stream socket with a
+well-known name which can be used to control the supervised process. A
+client connecting to this socket can query the status of the
+supervised process and can request that it's restarted, terminated or
+that a certain signal is sent to it. The supervisor process can also
+be asked to re-exec itself while maintaining the command state to
+enable it to be updated without disruptiing the running command.
+
+When the supervisor needs to terminate the command because of a
+termination or restart request, it'll first send a 'soft' termination
+signal (default: I<SIGTERM>) and then waits for a number of seconds
+(default: 20) for the command to terminate voluntarily. In case it
+doesn't, the supervisor will then kill it via I<SIGKILL>.
 
 =head1 OPTIONS
 
 =over
+
+=item B<-g I<ctrl socket group>>
+
+Set the group of the control socket. The argument can either be a name
+in the system group database or a numeric group id. If provided, the
+control socket will be created group-writable
+
+=item B<-n I<name>>
+
+Use C<name> instead of C<cmd> as name for the control socket.
+
+=item B<-p I<term grace period>>
+
+Number of seconds to wait for the command to terminate voluntarily
+before killing it.
+
+=item B<-t I<term sig>>
+
+Signal (numeric) to use as 'soft' termination signal.
+
+=back
+
+=head1 SIGNALS
+
+=over
+
+=item B<SIGINT>, B<SIGTERM>
+
+Terminate the supervised command and exit after it has actually
+terminated.
+
+=back
+
+=head1 ENVIRONMENT VARIABLES
+
+=over
+
+=item B<MONITOR_CONTROL_PATH>
+
+Directory the control socket will be created in. The monitor program
+will create this directoy with mode 0711 if it doesn't exist already.
+
+=back
+
+=head1 FILES
+
+=over
+
+=item B</run/__monitors__>
+
+Default control socket directory.
 
 =back
