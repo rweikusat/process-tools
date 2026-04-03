@@ -29,11 +29,12 @@ PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	sane-env \
 )
 
-PODS := $(shell ls doc/*.pod)
-MANS := $(PODS:.pod=.1)
+PODS := 	$(shell ls doc/*.pod)
+MANS := 	$(PODS:.pod=.1)
 
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
+TARGET_MAN :=	$(TARGET)/share/man/man1
 
 #**  CFLAGS
 #
@@ -73,8 +74,9 @@ deb:
 	fakeroot debian/rules binary
 
 install:
-	$(INST_X) -d $(TARGET_BIN)
+	$(INST_X) -d $(TARGET_BIN) $(TARGET_MAN)
 	$(INST_X) $(PRGS) $(TARGET_BIN)
+	$(INST_D) $(MANS) $(TARGET_MAN)
 
 clean:
 	-rm tmp/*.o tmp/*.d
