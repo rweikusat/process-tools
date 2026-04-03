@@ -10,6 +10,12 @@ LD :=		$(GCC)
 INST_D :=	install -m 0644
 INST_X :=	install -m 0755
 
+#**  functions
+#
+man-ver = $(shell sed -n 's/^\([^ ]* [^ ]*\) .*/\1/g; s/[()]//g; p; q' debian/changelog)
+pods = $(shell ls doc/man$(1)/*.pod)
+mans = $(subst pod,$(1),$(call pods,$(1)))
+
 #**  files
 #
 SRCS :=		$(shell ls src/*.c)
@@ -29,12 +35,13 @@ PRGS :=			$(D_PRGS) $(addprefix bin/, \
 	sane-env \
 )
 
-PODS := 	$(shell ls doc/*.pod)
-MANS := 	$(PODS:.pod=.1)
+MANS1 :=	$(call mans,1)
+MANS :=		$(MANS1)
 
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
-TARGET_MAN :=	$(TARGET)/share/man/man1
+TARGET_MAN :=	$(TARGET)/share/man
+TARGET_MAN1 :=	$(TARGET)/share/man/man1
 
 #**  CFLAGS
 #
@@ -59,9 +66,6 @@ endif
 TARGET :=	$(DESTDIR)/usr
 TARGET_BIN :=	$(TARGET)/bin
 
-#**  functions
-#
-man-ver = $(shell sed -n 's/^\([^ ]* [^ ]*\) .*/\1/g; s/[()]//g; p; q' debian/changelog)
 
 #*  targets
 #
@@ -74,9 +78,9 @@ deb:
 	fakeroot debian/rules binary
 
 install:
-	$(INST_X) -d $(TARGET_BIN) $(TARGET_MAN)
+	$(INST_X) -d $(TARGET_BIN) $(TARGET_MAN1)
 	$(INST_X) $(PRGS) $(TARGET_BIN)
-	$(INST_D) $(MANS) $(TARGET_MAN)
+	$(INST_D) $(MANS1) $(TARGET_MAN1)
 
 clean:
 	-rm tmp/*.o tmp/*.d
@@ -102,5 +106,5 @@ tmp/%.o: src/%.c tmp/%.d
 bin/%: tmp/diag.o
 	$(LD) -o $@ $^
 
-doc/%.1: doc/%.pod debian/changelog
+doc/man1/%.1: doc/man1/%.pod debian/changelog
 	pod2man -c 'User Commands' -r "$(call man-ver)" $< >$@
