@@ -11,6 +11,8 @@ chids - Execute a command with different uid, gid and supplementary groups list
 Execute the command C<cmd> after possibly changing the user id, group
 id and supplmentary groups list of the current process.
 
+=head1 OPTIONS
+
 =over
 
 =item B<-g I<group>>
