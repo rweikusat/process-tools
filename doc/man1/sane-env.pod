@@ -1,9 +1,52 @@
 =head1 NAME
 
+sane-env - run a command witn a santized environment
+
 =head1 SYNOPSIS
+
+ sane-env [-k <keep>] [-s <set>] <cmd> <arg>*
 
 =head1 DESCRIPTION
 
+Run a command with a minimal set of standard environment variables
+set. Explicit additions to the newly created environment can override
+the default values of standard environment variables.
+
 =head1 OPTIONS
 
+=over
+
+=item B<-k I<name>>
+
+Keep the inherited environment variable I<name>. Can be used any
+number of times.
+
+=item B<-s I<name>C<=>I<value>>
+
+Add an environment variable with name I<name> and value I<value> to
+the newly created environment for running C<cmd>. Can be provided any
+number of times.
+
+=back
+
 =head1 ENVIRONMENT VARIABLES
+
+=over
+
+=item B<HOME>
+
+Set to the path of the current user's home directory.
+
+=item B<LOGNAME>
+
+Set to the user name associated with the uid of process.
+
+=item B<PATH>
+
+Set to C</usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin>.
+
+=item B<USER>
+
+Same as B<LOGNAME>.
+
+=back
