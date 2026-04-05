@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# process-tools postinst
+#
+
+PATH=/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin
+export PATH
+
+test "$TRACE" && set -x
+
+case "$1" in
+    configure)
+        ;;
+
+    *)
+        printf '%s called w/ unsupported argument %s\n' "$0" "$1" >&2
+        ;;
+esac
+
+cd /run/__monitors__ || exit 0
+
+printf 'updateting monitors\n' >&2
+
+find -maxdepth 1 -type s | while read mon;
+do
+    printf '  %s\n' "$mon" >&2
+    monitor-ctrl "$mon" rexec
+done
+
+exit 0
