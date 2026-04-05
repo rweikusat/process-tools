@@ -1,11 +1,80 @@
 =head1 NAME
 
+monitor-ctrl - control a running monitor instance
+
 =head1 SYNOPSIS
+
+ monitor-ctrl [-q] <instance> status|stop|restart|signal|rexec [<arg>]
 
 =head1 DESCRIPTION
 
+Connect to the control socket of a running monitor instance and send a
+control message to. Wait for the reply and print a message indicating
+success or failure. The first argument must be the name of a running
+monitor instance.
+
+=head1 COMMANDS
+
+=over
+
+=item B<status>
+
+Query the status of the supervised process.
+
+=item B<stop>
+
+Terminate the supervised process and the monitor itself once this has
+happened.
+
+=item B<restart>
+
+Restart the supervised program, that is, terminate the exising process
+and start a new one.
+
+=item B<signal I<signum>>
+
+Send a signal to the supervised process. Needs a signal number as
+argument.
+
+=item B<rexec>
+
+Asks the running monitor to re-execute itself while preserving the
+state of the supervised process. This enables seamless updates of the
+monitor program.
+
+=back
+
 =head1 OPTIONS
+
+=over
+
+=item B<-q>
+
+Suppress printing the success/ failure message.
+
+=back
+
+=head1 EXIT STATUS
+
+The program will exit with a status of 0 if the request was successful
+and 1 otherwise.
 
 =head1 ENVIRONMENT VARIABLES
 
+=over
+
+=item B<MONITOR_CONTROL_PATH>
+
+Directoty control sockets are supposed to reside in.
+
+=back
+
 =head1 FILES
+
+=over
+
+=item B</run/__monitors__>
+
+Default control socket directory.
+
+=back
