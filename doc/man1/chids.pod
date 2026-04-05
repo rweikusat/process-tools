@@ -1,6 +1,6 @@
 =head1 NAME
 
-chids - Execute a command with different uid, gid and supplementary groups list
+chids - execute a command with different uid, gid and supplementary groups list
 
 =head1 SYNOPSIS
 

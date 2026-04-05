@@ -1,6 +1,6 @@
 =head1 NAME
 
-launch - Execute a command as background process.
+launch - execute a command as background process
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,6 @@
 =head1 NAME
 
-ch-dir - Change current working directory and execute a command
+ch-dir - change current working directory and execute a command
 
 =head1 SYNOPSIS
 

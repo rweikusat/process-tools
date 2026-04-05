@@ -1,6 +1,6 @@
 =head1 NAME
 
-clds - Close open file descriptors and execute a command
+clds - close open file descriptors and execute a command
 
 =head1 SYNOPSIS
 
