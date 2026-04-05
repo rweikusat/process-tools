@@ -1,0 +1,23 @@
+=head1 NAME
+
+launch - Execute a command as background process.
+
+=head1 SYNOPSIS
+
+ launch [-n <name>] <cmd> <arg>*
+
+=head1 DESCRIPTION
+
+Execute C<cmd> in a forked process running in its own session and with
+file descriptors 0, 1 and 2 open and connected to I</dev/null>.
+
+=head1 OPTIONS
+
+=over
+
+=item B<-n I<name>>
+
+Set command name for logging purposes, If omitted, C<cmd> will be used
+as command name.
+
+=back
