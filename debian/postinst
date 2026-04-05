@@ -23,6 +23,10 @@ printf 'updateting monitors\n' >&2
 
 find -maxdepth 1 -type s | while read mon;
 do
+    mon=${mon#*/}
+
+    monitor-ctrl -q "$mon" status 2>/dev/null || continue
+
     printf '  %s\n' "$mon" >&2
     monitor-ctrl "$mon" rexec
 done
