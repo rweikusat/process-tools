@@ -7,7 +7,7 @@ startup.
 Running `make deb` in the top-level source directory can be used to
 build a Debian package.
 
-New For 0,2
+New For 0.2
 -----------
 
 - lock -- exec a command with a set of POSIX record locks held
