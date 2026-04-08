@@ -11,3 +11,5 @@ New For 0.2
 -----------
 
 - lock -- exec a command with a set of POSIX record locks held
+- pause -- invoke pause(2)
+
