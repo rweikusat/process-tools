@@ -36,17 +36,17 @@ static void usage(void)
 static void lock(char *path, int kind, int op)
 {
     struct flock lk;
-    int fd, o_flags, rc;
+    int fd, o_acc, rc;
 
-    o_flags = 0;                /* silence pointless warning */
+    o_acc = 0;                /* silence pointless warning */
     switch (kind) {
     case 'r':
-        o_flags = O_RDONLY;
+        o_acc = O_RDONLY;
         lk.l_type = F_RDLCK;
         break;
 
     case 'w':
-        o_flags = O_RDWR;
+        o_acc = O_RDWR;
         lk.l_type = F_WRLCK;
     }
 
@@ -54,7 +54,7 @@ static void lock(char *path, int kind, int op)
         msg("trying to acquire %s lock on %s",
             tps[lk.l_type], path);
 
-    fd = open(path, o_flags, 0);
+    fd = open(path, o_acc | O_CREAT, 0666);
     if (fd == -1) die("open");
 
     lk.l_whence = lk.l_start = lk.l_len = 0;
