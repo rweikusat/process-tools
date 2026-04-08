@@ -26,6 +26,7 @@ D_PRGS :=		$(addprefix bin/, \
 	chids \
 	clfds \
 	launch \
+	lock \
 	monitor \
 )
 
