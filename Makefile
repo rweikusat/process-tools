@@ -28,6 +28,7 @@ D_PRGS :=		$(addprefix bin/, \
 	launch \
 	lock \
 	monitor \
+	pause \
 )
 
 PRGS :=			$(D_PRGS) $(addprefix bin/, \
