@@ -6,6 +6,7 @@
 /*  includes */
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,7 +14,7 @@
 #include "diag.h"
 
 /*  macros */
-#definde PPID "PPid: "
+#define PPID "PPid: "
 
 /*  types */
 struct ppid {
