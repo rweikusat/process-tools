@@ -38,7 +38,7 @@ static void usage(void)
 static char *read_proc_file(char *path)
 {
     char *s, *p, *e, *tmp;
-    size_t want;
+    size_t have, want;
     ssize_t nr;
     int fd;
 
@@ -54,12 +54,13 @@ static char *read_proc_file(char *path)
         p += nr;
 
         if (p == e) {
-            want = (e - s) * 2;
+            have = e - s;
+            want = have * 2;
             tmp = realloc(s, want);
             if (!tmp) die("realloc");
 
             e = tmp + want;
-            p = tmp + (p - s) + 1;
+            p = tmp + have + 1;
             s = tmp;
         }
     }
