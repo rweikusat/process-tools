@@ -60,7 +60,7 @@ static char *read_proc_file(char *path)
             if (!tmp) die("realloc");
 
             e = tmp + want;
-            p = tmp + have + 1;
+            p = tmp + have;
             s = tmp;
         }
     }
