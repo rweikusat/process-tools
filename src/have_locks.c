@@ -44,7 +44,7 @@ int main(int argc, char **argv)
         }
 
     argv += optind;
-    if (!*argv) usafge();
+    if (!*argv) usage();
 
     return 0;
 }
