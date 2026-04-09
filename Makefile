@@ -36,6 +36,7 @@ D_PRGS := \
 
 HY_PRGS := \
 	ch-dir \
+	have-locks \
 	monitor-ctrl \
 	sane-env
 
