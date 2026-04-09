@@ -12,6 +12,9 @@
 
 #include "diag.h"
 
+/*  macros */
+#definde PPID "PPid: "
+
 /*  types */
 struct ppid {
     struct ppid *p;
@@ -35,7 +38,7 @@ static void usage(void)
     exit(1);
 }
 
-static char *read_proc_file(char *path)
+static char *read_proc_file(char *path, char **end)
 {
     char *s, *p, *e, *tmp;
     size_t have, want;
@@ -66,7 +69,7 @@ static char *read_proc_file(char *path)
     }
     if (nr == -1) die("read");
 
-    *p = 0;
+    *end = p;
     close(fd);
     return s;
 }
@@ -74,10 +77,45 @@ static char *read_proc_file(char *path)
 static pid_t ppid_for(pid_t pid)
 {
     char status_name[128];
-    char *status;
+    char *status, *e, *p, *pp, *want;
+    unsigned long ppid;
+    int c;
 
     sprintf(status_name, "/proc/%ld/status", (long)pid);
-    status = read_proc_file(status_name);
+    p = status = read_proc_file(status_name, &e);
+    while (p < e) {
+        want = PPID;
+        while (p < e && (c = *p, c != '\n' && *want == c)) {
+            ++want;
+            ++p;
+        }
+
+        if (p < e && !*want){
+            pp = p;
+            do
+                c = *pp;
+            while (c != '\n' && ++pp < e);
+            if (c != '\n') {
+                err("%s: missing \\n in %s", __func__, status_name);
+                exit(1);
+            }
+
+            *pp = 0;
+            errno = 0;
+            ppid = strtoul(p, &e, 10);
+            if (ppid == ULONG_MAX && errno) die("strtoul");
+            if (*e) {
+                err("%s: garbage in ppid", __func__);
+                exit(1);
+            }
+
+            free(status);
+            return ppid;
+        }
+    }
+
+    err("%s: didn't find %s", __func__, PPID);
+    exit(1);
     return 0;
 }
 
