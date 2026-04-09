@@ -9,6 +9,12 @@
 
 #include "diag.h"
 
+/*  types */
+struct ppid {
+    struct ppid *p;
+    pid_t *pid;
+};
+
 /*  variables */
 static int verbose;
 
@@ -26,9 +32,32 @@ static void usage(void)
     exit(1);
 }
 
+static struct ppid *get_ppids(void)
+{
+    struct ppid *first, **chain, *ppid;
+    pid_t cur, pid;
+
+    first = NULL;
+    chain = &first;
+    cur = getpid();
+
+    while (pid = ppid_for(cur), cur) {
+        ppid = *chain = malloc(sizeof(*ppid));
+        if (!ppid) die("malloc");
+        ppid->p = NULL;
+        chain = &ppid->p;
+
+        ppid->pid = pid;
+        cur = pid;
+    }
+
+    return first;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
+    struct ppid *ppids;
     int c;
 
     init_diag("have-locks");
@@ -45,6 +74,8 @@ int main(int argc, char **argv)
 
     argv += optind;
     if (!*argv) usage();
+
+    ppids = get_ppids();
 
     return 0;
 }
