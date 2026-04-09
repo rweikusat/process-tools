@@ -91,27 +91,34 @@ static pid_t ppid_for(pid_t pid)
             ++p;
         }
 
-        if (p < e && !*want){
-            pp = p;
-            do
-                c = *pp;
-            while (c != '\n' && ++pp < e);
-            if (c != '\n') {
-                err("%s: missing \\n in %s", __func__, status_name);
-                exit(1);
+        if (p < e){
+            if (!*want) {
+                pp = p;
+                do
+                    c = *pp;
+                while (c != '\n' && ++pp < e);
+                if (c != '\n') {
+                err_no_nl:
+                    err("%s: missing \\n in %s", __func__, status_name);
+                    exit(1);
+                }
+
+                *pp = 0;
+                errno = 0;
+                ppid = strtoul(p, &e, 10);
+                if (ppid == ULONG_MAX && errno) die("strtoul");
+                if (*e) {
+                    err("%s: garbage in ppid", __func__);
+                    exit(1);
+                }
+
+                free(status);
+                return ppid;
             }
 
-            *pp = 0;
-            errno = 0;
-            ppid = strtoul(p, &e, 10);
-            if (ppid == ULONG_MAX && errno) die("strtoul");
-            if (*e) {
-                err("%s: garbage in ppid", __func__);
-                exit(1);
-            }
-
-            free(status);
-            return ppid;
+            do c = *p; while (c != '\n' && ++p < e);
+            if (p == e) goto err_no_nl;
+            ++p;
         }
     }
 
