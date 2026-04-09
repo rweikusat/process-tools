@@ -26,7 +26,10 @@ SRCS :=		$(shell ls src/*.c)
 OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
-D_PRGS := \
+# 'plain' programs, ie, without a hyphen in their name,
+# depend on .o file with same names
+#
+PLAIN_PRGS := \
 	chids \
 	clfds \
 	launch \
@@ -34,13 +37,15 @@ D_PRGS := \
 	monitor \
 	pause
 
+# hyphen programs, depend on .o file with - translated to _
+#
 HY_PRGS := \
 	ch-dir \
 	have-locks \
 	monitor-ctrl \
 	sane-env
 
-PRGS := $(addprefix bin/, $(D_PRGS) $(HY_PRGS))
+PRGS := $(addprefix bin/, $(PLAIN_PRGS) $(HY_PRGS))
 
 MANS1 :=	$(call mans,1)
 MANS :=		$(MANS1)
@@ -94,7 +99,7 @@ clean:
 	-rm bin/*
 	-rm $(MANS)
 
-$(addprefix bin/, $(D_PRGS)) : bin/% : tmp/%.o
+$(addprefix bin/, $(PLAIN_PRGS)) : bin/% : tmp/%.o
 $(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 
 include $(DEPS)
