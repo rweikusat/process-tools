@@ -16,26 +16,30 @@ man-ver = $(shell sed -n 's/^\([^ ]* [^ ]*\) .*/\1/g; s/[()]//g; p; q' debian/ch
 pods = $(shell ls doc/man$(1)/*.pod)
 mans = $(subst pod,$(1),$(call pods,$(1)))
 
+define hy-prg-dep
+bin/$(1): tmp/$(subst -,_,$(1)).o
+endef
+
 #**  files
 #
 SRCS :=		$(shell ls src/*.c)
 OBJS :=		$(addprefix tmp/, $(notdir $(SRCS:.c=.o)))
 DEPS :=		$(OBJS:.o=.d)
 
-D_PRGS :=		$(addprefix bin/, \
+D_PRGS := \
 	chids \
 	clfds \
 	launch \
 	lock \
 	monitor \
-	pause \
-)
+	pause
 
-PRGS :=			$(D_PRGS) $(addprefix bin/, \
+HY_PRGS := \
 	ch-dir \
 	monitor-ctrl \
-	sane-env \
-)
+	sane-env
+
+PRGS := $(addprefix bin/, $(D_PRGS) $(HY_PRGS))
 
 MANS1 :=	$(call mans,1)
 MANS :=		$(MANS1)
@@ -89,11 +93,8 @@ clean:
 	-rm bin/*
 	-rm $(MANS)
 
-bin/ch-dir: tmp/ch_dir.o
-bin/monitor-ctrl: tmp/monitor_ctrl.o
-bin/sane-env: tmp/sane_env.o
-
-$(D_PRGS) : bin/% : tmp/%.o
+$(addprefix bin/, $(D_PRGS)) : bin/% : tmp/%.o
+$(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 
 include $(DEPS)
 
