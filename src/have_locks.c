@@ -136,7 +136,7 @@ static struct ppid *get_ppids(void)
     chain = &first;
     cur = getpid();
 
-    while (pid = ppid_for(cur), cur) {
+    while (pid = ppid_for(cur), pid) {
         ppid = *chain = malloc(sizeof(*ppid));
         if (!ppid) die("malloc");
         ppid->p = NULL;
