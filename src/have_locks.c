@@ -39,7 +39,7 @@ static void usage(void)
     exit(1);
 }
 
-static char *read_proc_file(char *path, char **end)
+static char *read_file(char *path, char **end)
 {
     char *s, *p, *e, *tmp;
     size_t have, want;
@@ -83,7 +83,7 @@ static pid_t ppid_for(pid_t pid)
     int c;
 
     sprintf(status_name, "/proc/%ld/status", (long)pid);
-    p = status = read_proc_file(status_name, &e);
+    p = status = read_file(status_name, &e);
     while (p < e) {
         want = PPID;
         while (p < e && (c = *p, c != '\n' && *want == c)) {
