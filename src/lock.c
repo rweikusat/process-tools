@@ -48,13 +48,18 @@ static void lock(char *path, int kind, int op)
     }
 
     fd = open(path, o_acc | O_CREAT, 0666);
-    if (fd == -1) die("open");
+    if (fd == -1) {
+        err("%s: open %s: %m(%d)", __func__, path, errno);
+        exit(1);
+    }
 
     lk.l_whence = lk.l_start = lk.l_len = 0;
     rc = fcntl(fd, op, &lk);
     if (rc == -1) {
         if (op == F_SETLK &&
             (errno == EACCES || errno == EAGAIN)) {
+            err("%s: failed to acquire %s lock on %s",
+                __func__, tps[lk.l_type], path);
             exit(1);
         }
 
