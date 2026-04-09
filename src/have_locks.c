@@ -4,6 +4,9 @@
 */
 
 /*  includes */
+#include <fcntl.h>
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -12,7 +15,7 @@
 /*  types */
 struct ppid {
     struct ppid *p;
-    pid_t *pid;
+    pid_t pid;
 };
 
 /*  variables */
@@ -30,6 +33,51 @@ static void usage(void)
     msg("    messages.");
 
     exit(1);
+}
+
+static char *read_proc_file(char *path)
+{
+    char *s, *p, *e, *tmp;
+    size_t want;
+    ssize_t nr;
+    int fd;
+
+    fd = open(path, O_RDONLY, 0);
+    if (fd == -1) {
+        err("%s: open %s: %m(%d)", __func__, path, errno);
+        exit(1);
+    }
+
+    p = s = malloc(128);
+    e = s + 128;
+    while (nr = read(fd, p, e - p), nr > 0) {
+        p += nr;
+
+        if (p == e) {
+            want = (e - s) * 2;
+            tmp = realloc(s, want);
+            if (!tmp) die("realloc");
+
+            e = tmp + want;
+            p = tmp + (p - s) + 1;
+            s = tmp;
+        }
+    }
+    if (nr == -1) die("read");
+
+    *p = 0;
+    close(fd);
+    return s;
+}
+
+static pid_t ppid_for(pid_t pid)
+{
+    char status_name[128];
+    char *status;
+
+    sprintf(status_name, "/proc/%ld/status", (long)pid);
+    status = read_proc_file(status_name);
+    return 0;
 }
 
 static struct ppid *get_ppids(void)
