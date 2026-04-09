@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     init_diag("lock");
     op = F_SETLKW;
 
-    while (c = getopt(argc, argv, "r:w:t"), c != -1) {
+    while (c = getopt(argc, argv, "+r:w:t"), c != -1) {
         switch (c) {
         case 'r':
         case 'w':
