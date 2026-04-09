@@ -16,7 +16,7 @@ static int verbose;
 static void usage(void)
 {
     msg("Usage: have-locks [-v] </path/to/file>+");
-    msg("    Determines if locks on all files are held somwhere within");
+    msg("    Determines if locks on all files are held somewhere within");
     msg("    the current process scope, that is, the set of all processes");
     msg("    part of the ppid chain starting with the ppid of the current");
     msg("    process and ending with pid 1.");
