@@ -14,7 +14,7 @@
 #include "diag.h"
 
 /*  macros */
-#define PPID "PPid: "
+#define PPID "PPid:\t"
 
 /*  types */
 struct ppid {
