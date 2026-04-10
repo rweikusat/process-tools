@@ -273,6 +273,7 @@ static int scan_locks(struct file_id *f_ids, unsigned n_fids,
         pp = field_end(p);
         *pp = 0;
         parse_f_id(p, &lock_id);
+
         pos = search_for_f_id(f_ids, n_fids, &lock_id);
         if (pos != -1) {
             rc = search_for_pid(ppids, pid);
