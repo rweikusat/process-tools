@@ -101,7 +101,6 @@ static pid_d atopid(char *p)
     return pid;
 }
 
-
 static pid_t ppid_for(pid_t pid)
 {
     char status_name[128];
