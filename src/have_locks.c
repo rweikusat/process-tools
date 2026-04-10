@@ -220,6 +220,20 @@ static void parse_f_id(char *p, struct file_id *f_id)
     f_id->ino = ino;
 }
 
+static int search_for_f_id(struct file_id *f_ids, unsigned n,
+                           struct file_id *want)
+{
+    while (n) {
+        --n;
+
+        if (f_ids[n].dev == want->dev
+            && f_ids[n].ino == want->ino)
+            return n;
+    }
+
+    return -1;
+}
+
 static void scan_locks(struct file_id *f_ids, unsigned n_fids,
                        struct ppid *ppids)
 {
