@@ -257,7 +257,7 @@ static void scan_locks(struct file_id *f_ids, unsigned n_fids,
 
     p = locks = read_file(LOCKS);
 
-    while (n_fids) {
+    while (*p && n_fids) {
         p = skip_fields(p, 4);
 
         pp = field_end(p);
@@ -285,6 +285,8 @@ static void scan_locks(struct file_id *f_ids, unsigned n_fids,
             err("%s: missing \\n in %s", __func__, LOCKS);
             exit(1);
         }
+
+        ++p;
     }
 
     free(locks);
