@@ -247,13 +247,13 @@ static int search_for_pid(struct ppid *ppids, pid_t pid)
     return -1;
 }
 
-static void scan_locks(struct file_id *f_ids, unsigned n_fids,
+static int scan_locks(struct file_id *f_ids, unsigned n_fids,
                        struct ppid *ppids)
 {
     char *locks, *p, *pp;
     struct file_id lock_id;
     pid_t pid;
-    int pos;
+    int pos, rc;
 
     p = locks = read_file(LOCKS);
 
@@ -270,10 +270,10 @@ static void scan_locks(struct file_id *f_ids, unsigned n_fids,
         parse_f_id(p, &lock_id);
         pos = search_for_f_id(f_ids, n_fids, &lock_id);
         if (pos != -1) {
-            pos = search_for_pid(ppids, pid);
-            if (pos == -1) {
-                if (verbose) msg("%s: %s not locked", __func__, f_ids[pos].path);
-                exit(2);
+            rc = search_for_pid(ppids, pid);
+            if (rc == -1) {
+                if (verbose) msg("%s: %s not locked by us", __func__, f_ids[pos].path);
+                return 1;
             }
 
             if (verbose) msg("%s: %s locked", __func__, f_ids[pos].path);
@@ -290,6 +290,17 @@ static void scan_locks(struct file_id *f_ids, unsigned n_fids,
     }
 
     free(locks);
+
+    if (verbose) {
+        while (n_fids) {
+            --n_fids;
+            msg("%s: %s not locked", __func__, f_ids[n_fids].path);
+        }
+
+        return 1;
+    }
+
+    return 0;
 }
 
 /*  main */
@@ -319,7 +330,6 @@ int main(int argc, char **argv)
     argc -= optind;
     f_ids = alloca(sizeof(*f_ids) * argc);
     get_f_ids(argv, argc, f_ids);
-    scan_locks(f_ids, argc, ppids);
 
-    return 0;
+    return scan_locks(f_ids, argc, ppids);
 }
