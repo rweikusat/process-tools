@@ -86,8 +86,8 @@ static char *read_file(char *path)
         }
     }
     if (nr == -1) die("read");
-
     *p = 0;
+
     close(fd);
     return s;
 }
