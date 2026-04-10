@@ -16,7 +16,8 @@
 #include "diag.h"
 
 /*  macros */
-#define PPID "\nPPid:\t"
+#define LOCKS	"/proc/locks"
+#define PPID	"\nPPid:\t"
 
 /*  types */
 struct ppid {
@@ -27,6 +28,7 @@ struct ppid {
 struct file_id {
     dev_t dev;
     ino_t ino;
+    char *path;
 };
 
 /*  variables */
@@ -158,9 +160,81 @@ static void get_f_ids(char **paths, unsigned n, struct file_id *f_ids)
         }
         f_ids[pos].dev = st.st_dev;
         f_ids[pos].ino = st.st_ino;
+        f_ids[pos].path = path[pos];
 
         ++pos;
     }
+}
+
+static char *field_end(char *p)
+{
+    char *pp;
+
+    pp = strchr(p, ' ');
+    if (!pp) {
+        err("%s: missing field sep in %s", __func__, LOCKS);
+        exit(1);
+    }
+
+    return pp;
+}
+
+static char *skip_field(char *p)
+{
+    p = field_end(p);
+    while (*p == ' ') ++p;
+    return p;
+}
+
+static char *skip_fields(char *p, unsigned n)
+{
+    while (n) {
+        p = skip_field(p);
+        --n;
+    }
+}
+
+static void scan_locks(struct file_id *f_ids, unsigned n_fids,
+                       struct ppid *ppids)
+{
+    char *locks, *p, *pp;
+    struct file_id lock_id;
+    pid_t pid;
+    int pos;
+
+    p = locks = read_file(LOCKS);
+
+    while (n_fids) {
+        p = skip_fields(p, 4);
+
+        pp = field_end(p);
+        *pp = 0;
+        pid = atopid(p);
+
+        p = pp + 1;
+        pp = field_end(p);
+        *pp = 0;
+        parse_f_id(p, &lock_id);
+        pos = search_for_f_id(f_ids, n_fids, &lock_id);
+        if (pos != -1) {
+            pos = search_for_pid(ppids, pid);
+            if (pos == -1) {
+                if (verbose) msg("%s: %s not locked", __func__, f_ids[pos].path);
+                exit(2);
+            }
+
+            if (verbose) msg("%s: %s locked", __func__, f_ids[pos].path);
+            f_ids[pos] = f_ids[--n_fids];
+        }
+
+        p = strchr(pp + 1, '\n');
+        if (!p) {
+            err("%s: missing \\n in %s", __func__, LOCKS);
+            exit(1);
+        }
+    }
+
+    free(locks);
 }
 
 /*  main */
@@ -190,6 +264,7 @@ int main(int argc, char **argv)
     argc -= optind;
     f_ids = alloca(sizeof(*f_ids) * argc);
     get_f_ids(argv, argc, f_ids);
+    scan_locks(f_ids, argc, ppids);
 
     return 0;
 }
