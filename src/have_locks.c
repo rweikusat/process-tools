@@ -198,7 +198,7 @@ static char *field_end(char *p)
 static char *skip_field(char *p)
 {
     p = field_end(p);
-    while (*p == ' ') ++p;
+    do ++p; while (*p == ' ');
     return p;
 }
 
