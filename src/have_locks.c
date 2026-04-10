@@ -101,8 +101,7 @@ static pid_t atopid(char *p)
     pid = strtol(p, &e, 10);
     if (pid == LONG_MAX && errno) die("strtol");
     if (*e) {
-        err("%s: garbage in %s-line: %s",
-            __func__, PPID, e);
+        err("%s: garbage in pid: %s", __func__, e);
         exit(1);
     }
 
