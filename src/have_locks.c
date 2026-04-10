@@ -69,6 +69,7 @@ static char *read_file(char *path)
     }
 
     p = s = malloc(START_BUFSZ);
+    if (!p) die("malloc");
     e = s + START_BUFSZ;
     while (nr = read(fd, p, e - p), nr > 0) {
         p += nr;
