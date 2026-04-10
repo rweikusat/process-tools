@@ -84,6 +84,24 @@ static char *read_file(char *path)
     return s;
 }
 
+static pid_d atopid(char *p)
+{
+    char *e;
+    pid_t pid;
+
+    errno = 0;
+    ppid = strtol(p, &e, 10);
+    if (ppid == LONG_MAX && errno) die("strtol");
+    if (*e) {
+        err("%s: garbage in %s-line: %s",
+            __func__, PPID, e);
+        exit(1);
+    }
+
+    return pid;
+}
+
+
 static pid_t ppid_for(pid_t pid)
 {
     char status_name[128];
@@ -108,15 +126,7 @@ static pid_t ppid_for(pid_t pid)
         exit(1);
     }
     *e = 0;
-
-    errno = 0;
-    ppid = strtol(p, &e, 10);
-    if (ppid == LONG_MAX && errno) die("strtol");
-    if (*e) {
-        err("%s: garbage in %s-line: %s",
-            __func__, PPID, e);
-        exit(1);
-    }
+    ppid = atopid(p);
 
     free(status);
     return ppid;
