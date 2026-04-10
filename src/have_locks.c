@@ -17,9 +17,14 @@
 
 #include "diag.h"
 
+/*  constants */
+enum {
+    START_BUFSZ =	128
+};
+
 /*  macros */
-#define LOCKS	"/proc/locks"
-#define PPID	"\nPPid:\t"
+#define LOCKS		"/proc/locks"
+#define PPID		"\nPPid:\t"
 
 /*  types */
 struct ppid {
@@ -63,8 +68,8 @@ static char *read_file(char *path)
         exit(1);
     }
 
-    p = s = malloc(128);
-    e = s + 128;
+    p = s = malloc(START_BUFSZ);
+    e = s + START_BUFSZ;
     while (nr = read(fd, p, e - p), nr > 0) {
         p += nr;
 
