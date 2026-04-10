@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -85,14 +86,14 @@ static char *read_file(char *path)
     return s;
 }
 
-static pid_d atopid(char *p)
+static pid_t atopid(char *p)
 {
     char *e;
-    pid_t pid;
+    long pid;
 
     errno = 0;
-    ppid = strtol(p, &e, 10);
-    if (ppid == LONG_MAX && errno) die("strtol");
+    pid = strtol(p, &e, 10);
+    if (pid == LONG_MAX && errno) die("strtol");
     if (*e) {
         err("%s: garbage in %s-line: %s",
             __func__, PPID, e);
@@ -170,7 +171,7 @@ static void get_f_ids(char **paths, unsigned n, struct file_id *f_ids)
         }
         f_ids[pos].dev = st.st_dev;
         f_ids[pos].ino = st.st_ino;
-        f_ids[pos].path = path[pos];
+        f_ids[pos].path = paths[pos];
 
         ++pos;
     }
@@ -202,6 +203,8 @@ static char *skip_fields(char *p, unsigned n)
         p = skip_field(p);
         --n;
     }
+
+    return p;
 }
 
 static void parse_f_id(char *p, struct file_id *f_id)
@@ -210,7 +213,7 @@ static void parse_f_id(char *p, struct file_id *f_id)
     uintmax_t ino;
     int rc;
 
-    rc = sscanf(p, "%02x:%02x:%uj", &maj, &min, &ino);
+    rc = sscanf(p, "%02x:%02x:%ju", &maj, &min, &ino);
     if (rc != 3) {
         err("%s: failed to parse %s", __func__, p);
         exit(1);
@@ -229,6 +232,16 @@ static int search_for_f_id(struct file_id *f_ids, unsigned n,
         if (f_ids[n].dev == want->dev
             && f_ids[n].ino == want->ino)
             return n;
+    }
+
+    return -1;
+}
+
+static int search_for_pid(struct ppid *ppids, pid_t pid)
+{
+    while (ppids) {
+        if (ppids->pid == pid) return 0;
+        ppids = ppids->p;
     }
 
     return -1;
