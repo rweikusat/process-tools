@@ -291,11 +291,12 @@ static int scan_locks(struct file_id *f_ids, unsigned n_fids,
 
     free(locks);
 
-    if (verbose) {
-        while (n_fids) {
-            --n_fids;
-            msg("%s: %s not locked", __func__, f_ids[n_fids].path);
-        }
+    if (n_fids) {
+        if (verbose)
+            do {
+                --n_fids;
+                msg("%s: %s not locked", __func__, f_ids[n_fids].path);
+            } while (n_fids);
 
         return 1;
     }
