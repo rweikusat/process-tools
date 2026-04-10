@@ -23,6 +23,11 @@ struct ppid {
     pid_t pid;
 };
 
+struct file_id {
+    dev_t dev;
+    ino_t ino;
+};
+
 /*  variables */
 static int verbose;
 
@@ -136,10 +141,32 @@ static struct ppid *get_ppids(void)
     return first;
 }
 
+static void get_f_ids(char **paths, unsigned n, struct file_id *f_ids)
+{
+    struct stat st;
+    unsigned pos;
+    int rc;
+
+    pos = 0;
+    while (pos < n) {
+        rc = stat(paths[pos], &st);
+        if (rc == -1) {
+            err("%s: stat %s: %m(%d)",
+                __func__, paths[pos], errno);
+            exit(1);
+        }
+        f_ids[pos].dev = st.st_dev;
+        f_ids[pos].ino = st.st_ino;
+
+        ++pos;
+    }
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
     struct ppid *ppids;
+    struct file_id *f_ids;
     int c;
 
     init_diag("have-locks");
@@ -158,6 +185,10 @@ int main(int argc, char **argv)
     if (!*argv) usage();
 
     ppids = get_ppids();
+
+    argc -= optind;
+    f_ids = alloca(sizeof(*f_ids) * argc);
+    get_f_ids(argv, argc, f_ids);
 
     return 0;
 }
