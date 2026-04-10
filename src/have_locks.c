@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -201,6 +202,22 @@ static char *skip_fields(char *p, unsigned n)
         p = skip_field(p);
         --n;
     }
+}
+
+static void parse_f_id(char *p, struct file_id *f_id)
+{
+    unsigned maj, min;
+    uintmax_t ino;
+    int rc;
+
+    rc = sscanf(p, "%02x:%02x:%uj", &maj, &min, &ino);
+    if (rc != 3) {
+        err("%s: failed to parse %s", __func__, p);
+        exit(1);
+    }
+
+    f_id->dev = makedev(maj, min);
+    f_id->ino = ino;
 }
 
 static void scan_locks(struct file_id *f_ids, unsigned n_fids,
