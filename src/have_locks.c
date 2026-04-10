@@ -273,6 +273,8 @@ static int scan_locks(struct file_id *f_ids, unsigned n_fids,
             rc = search_for_pid(ppids, pid);
             if (rc == -1) {
                 if (verbose) msg("%s: %s not locked by us", __func__, f_ids[pos].path);
+
+                free(locks);
                 return 1;
             }
 
