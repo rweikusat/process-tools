@@ -9,12 +9,13 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "diag.h"
 
 /*  macros */
-#define PPID "PPid:\t"
+#define PPID "\nPPid:\t"
 
 /*  types */
 struct ppid {
@@ -39,7 +40,7 @@ static void usage(void)
     exit(1);
 }
 
-static char *read_file(char *path, char **end)
+static char *read_file(char *path)
 {
     char *s, *p, *e, *tmp;
     size_t have, want;
@@ -70,7 +71,7 @@ static char *read_file(char *path, char **end)
     }
     if (nr == -1) die("read");
 
-    *end = p;
+    *p = 0;
     close(fd);
     return s;
 }
@@ -78,53 +79,39 @@ static char *read_file(char *path, char **end)
 static pid_t ppid_for(pid_t pid)
 {
     char status_name[128];
-    char *status, *e, *p, *pp, *want;
-    unsigned long ppid;
-    int c;
+    char *status, *p, *e;
+    long ppid;
 
     sprintf(status_name, "/proc/%ld/status", (long)pid);
-    p = status = read_file(status_name, &e);
-    while (p < e) {
-        want = PPID;
-        while (p < e && (c = *p, c != '\n' && *want == c)) {
-            ++want;
-            ++p;
-        }
+    status = read_file(status_name);
 
-        if (p < e){
-            if (!*want) {
-                pp = p;
-                do
-                    c = *pp;
-                while (c != '\n' && ++pp < e);
-                if (c != '\n') {
-                err_no_nl:
-                    err("%s: missing \\n in %s", __func__, status_name);
-                    exit(1);
-                }
-
-                *pp = 0;
-                errno = 0;
-                ppid = strtoul(p, &e, 10);
-                if (ppid == ULONG_MAX && errno) die("strtoul");
-                if (*e) {
-                    err("%s: garbage in ppid", __func__);
-                    exit(1);
-                }
-
-                free(status);
-                return ppid;
-            }
-
-            do c = *p; while (c != '\n' && ++p < e);
-            if (p == e) goto err_no_nl;
-            ++p;
-        }
+    p = strstr(status, PPID);
+    if (!p) {
+        err("%s: failed to find %s in %s",
+            __func__, PPID, status_name);
+        exit(1);
     }
 
-    err("%s: didn't find %s", __func__, PPID);
-    exit(1);
-    return 0;
+    p += sizeof(PPID) - 1;
+    e = strchr(p, '\n');
+    if (!e) {
+        err("%s: missing \\n in %s-line",
+            __func__, PPID);
+        exit(1);
+    }
+    *e = 0;
+
+    errno = 0;
+    ppid = strtol(p, &e, 10);
+    if (ppid == LONG_MAX && errno) die("strtol");
+    if (*e) {
+        err("%s: garbage in %s-line: %s",
+            __func__, PPID, e);
+        exit(1);
+    }
+
+    free(status);
+    return ppid;
 }
 
 static struct ppid *get_ppids(void)
