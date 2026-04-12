@@ -46,7 +46,7 @@ static inline int c2dg(unsigned c)
     return -1;
 }
 
-static void parse_fd_list(char *fdl)
+static struct relay_fd *parse_fd_list(char *fdl)
 {
     struct relay_fd *first, **chain, *r_fd;
     int fd, c;
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
     int c;
 
     init_diag("to-syslog");
-    relays = def_realy;
+    relays = def_relay;
     while (c = getopt(argc, argv, "+f"), c != -1)
         switch (c) {
         case 'f':
