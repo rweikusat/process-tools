@@ -12,7 +12,7 @@
 /*  types */
 struct relay_fd {
     struct relay_fd *p;
-    int from, to;
+    int pipe[2], to;
 };
 
 /*  variables */
@@ -90,6 +90,13 @@ static struct relay_fd *parse_fd_list(char *fdl)
     return first;
 }
 
+static void create_pipes(struct relay_fd *r_fds)
+{
+    int rc;
+
+}
+
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -102,6 +109,12 @@ int main(int argc, char **argv)
         switch (c) {
         case 'f':
             relays = parse_fd_list(optarg);
+            if (!relays) {
+                err("%s: -f witout actual fd list: %s",
+                    __func__, optarg);
+                exit(1);
+            }
+
             break;
 
         default:
@@ -110,6 +123,8 @@ int main(int argc, char **argv)
 
     argv += optind;
     if (!*argv) usage();
+
+    create_pipes(relays);
 
     return 0;
 }
