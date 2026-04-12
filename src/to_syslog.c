@@ -78,6 +78,15 @@ static void parse_fd_list(char *fdl)
         ++fdl;
     }
 
+    if (fd != -1) {
+        r_fd = alloc(sizeof(*r_fd));
+        r_fd->to = fd;
+        r_fd->p = NULL;
+
+        *chain = r_fd;
+        chain = &r_fd->p;
+    }
+
     return first;
 }
 
