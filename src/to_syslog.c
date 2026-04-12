@@ -39,6 +39,13 @@ static void usage(void)
     exit(1);
 }
 
+static inline int c2dg(unsigned c)
+{
+    c -= '0';
+    if (c < 10) return c;
+    return -1;
+}
+
 static void parse_fd_list(char *fdl)
 {
     struct relay_fd *first, **chain, *r_fd;
