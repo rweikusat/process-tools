@@ -43,7 +43,8 @@ HY_PRGS := \
 	ch-dir \
 	have-locks \
 	monitor-ctrl \
-	sane-env
+	sane-env \
+	to-syslog
 
 PRGS := $(addprefix bin/, $(PLAIN_PRGS) $(HY_PRGS))
 
