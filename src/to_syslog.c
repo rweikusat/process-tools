@@ -127,6 +127,17 @@ int main(int argc, char **argv)
     if (!*argv) usage();
 
     create_pipes(relays);
+    switch (fork()) {
+    case -1:
+        die("fork");
+
+    case 0:
+        run_relayers(relays);
+        break;
+
+    default:
+        run_cmd(relays, argv);
+    }
 
     return 0;
 }
