@@ -4,6 +4,7 @@
 */
 
 /*  includes */
+#include <alloc.h>
 #include <stdlib.h>
 
 #include "diag.h"
@@ -38,6 +39,41 @@ static void usage(void)
     exit(1);
 }
 
+static void parse_fd_list(char *fdl)
+{
+    struct relay_fd *first, **chain, *r_fd;
+    int fd, c;
+
+    chain = &first;
+    fd = -1;
+    while (c = *fdl, c) {
+        if (c == ',') {
+            if (fd != -1) {
+                r_fd = alloc(sizeof(*r_fd));
+                r_fd->to = fd;
+                r_fd->p = NULL;
+
+                *chain = r_fd;
+                chain = &r_fd->p;
+
+                fd = -1;
+            }
+        } else {
+            c = c2dg(c);
+            if (c == -1) {
+                err("%s: garbage in fd spec: %s", __func__, fdl);
+                exit(1);
+            }
+
+            fd = fd * 10 + c;
+        }
+
+        ++fdl;
+    }
+
+    return first;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -49,7 +85,7 @@ int main(int argc, char **argv)
     while (c = getopt(argc, argv, "+f"), c != -1)
         switch (c) {
         case 'f':
-            relays = parse_fd_lst(optarg);
+            relays = parse_fd_list(optarg);
             break;
 
         default:
