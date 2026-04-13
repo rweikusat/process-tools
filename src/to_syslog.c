@@ -5,6 +5,7 @@
 
 /*  includes */
 #include <alloc.h>
+#include <pthread.h>
 #include <stdlib.h>
 
 #include "diag.h"
@@ -23,6 +24,10 @@ static struct relay_fd def_relay[] = {
     {
         .to = 2 }
 };
+
+static unsigned relayers;
+static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*  routines */
 static void usage(void)
@@ -97,6 +102,26 @@ static void create_pipes(struct relay_fd *r_fds)
         rc = pipe(r_fds->pipe);
         if (rc == -1) die("pipe");
     } while (r_fds = r_fds->p, r_fds);
+}
+
+
+
+static void run_relayers(struct relay_fd *relays)
+{
+    struct relay_fd *mine;
+
+    relayers = count_relays(relays) - 1;
+
+    mine = relays;
+
+    while (relays = relays->p, relays)
+        start_relayer(relays);
+
+    do_relay(mine);
+
+    pthread_mutex_lock(&lock);
+    while (relayers)
+        pthread_cond_wait(&cond, &lock);
 }
 
 /*  main */
