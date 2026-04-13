@@ -104,14 +104,37 @@ static void create_pipes(struct relay_fd *r_fds)
     } while (r_fds = r_fds->p, r_fds);
 }
 
+static void *relay_trhead(void *arg)
+{
+    unsigned running;
 
+    do_relay(arg);
+
+    pthread_mutex_lock(&lock);
+    running = --relayers;
+    pthread_mutex_unlock(&lock);
+
+    if (!running) pthread_cond_signal(&cond);
+    return NULL;
+}
+
+static void start_relayer(struct relay_fd *r_fd)
+{
+    pthread_t tid;
+    int rc;
+
+    rc = pthread_create(&tid, NULL, relay_thread, r_fd);
+    if (rc) {
+        errno = rc;
+        die("pthread_create");
+    }
+}
 
 static void run_relayers(struct relay_fd *relays)
 {
     struct relay_fd *mine;
 
     relayers = count_relays(relays) - 1;
-
     mine = relays;
 
     while (relays = relays->p, relays)
