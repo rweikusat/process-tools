@@ -130,6 +130,14 @@ static void start_relayer(struct relay_fd *r_fd)
     }
 }
 
+static unsigned count_relays(struct relay_fd *relays)
+{
+    while (relays) {
+        ++relayers;
+        relays = relays->p;
+    }
+}
+
 static void run_relayers(struct relay_fd *relays)
 {
     struct relay_fd *mine;
