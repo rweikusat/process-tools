@@ -113,6 +113,19 @@ static void create_pipes(struct relay_fd *r_fds)
     } while (r_fds = r_fds->p, r_fds);
 }
 
+static Write(int fd, char *p, char *e)
+{
+    ssize_t nw;
+
+    while (p < e) {
+        nw = write(fd, p, e - p);
+        if (nw == -1) die("write");
+
+        p += nw;
+    }
+}
+
+
 static void do_relay(struct relay_fd *r_fd)
 {
     char buf[4096];
@@ -131,7 +144,7 @@ static void do_relay(struct relay_fd *r_fd)
         nr = read(from, buf, sizeof(buf));
 
         if (nr > 0) {
-            Write(to, buf, nr);
+            Write(to, buf, buf + nr);
             log_lines(buf, nr, &l_buf);
         }
     } while (nr > 0);
