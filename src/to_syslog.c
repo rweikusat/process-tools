@@ -125,7 +125,6 @@ static Write(int fd, char *p, char *e)
     }
 }
 
-
 static void do_relay(struct relay_fd *r_fd)
 {
     char buf[4096];
