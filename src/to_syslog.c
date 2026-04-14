@@ -128,6 +128,12 @@ static void start_relayer(struct relay_fd *r_fd)
         errno = rc;
         die("pthread_create");
     }
+
+    rc = pthread_detach(tid);
+    if (rc) {
+        errno = rc;
+        die("pthread_detach");
+    }
 }
 
 static unsigned count_relays(struct relay_fd *relays)
