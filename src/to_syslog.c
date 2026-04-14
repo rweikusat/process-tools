@@ -6,14 +6,22 @@
 /*  includes */
 #include <alloc.h>
 #include <pthread.h>
+#include <regex.h>
 #include <stdlib.h>
 
 #include "diag.h"
+
+/*  macros */
+#define SYSLOG_PRE "^[^ \t[]+\\[[0-9]+\\]: "
 
 /*  types */
 struct relay_fd {
     struct relay_fd *p;
     int pipe[2], to;
+};
+
+struct l_buf {
+    char *s, *p, *e;
 };
 
 /*  variables */
@@ -28,6 +36,7 @@ static struct relay_fd def_relay[] = {
 static unsigned relayers;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static regex_t sysl_pre;
 
 /*  routines */
 static void usage(void)
@@ -104,7 +113,36 @@ static void create_pipes(struct relay_fd *r_fds)
     } while (r_fds = r_fds->p, r_fds);
 }
 
-static void *relay_trhead(void *arg)
+static void do_relay(struct relay_fd *r_fd)
+{
+    char buf[4096];
+    struct l_buf l_buf;
+    ssize_t nr;
+    int from, to;
+
+    from = *r_fd->pipe;
+    close(r_fd->pipe[1]);
+
+    l_buf->p = l_buf->s = malloc(128);
+    if (!l_buf->s) die("malloc");
+    l_buf->e = l_buf->s + 128;
+
+    do {
+        nr = read(from, buf, sizeof(buf));
+
+        if (nr > 0) {
+            Write(to, buf, nr);
+            log_lines(buf, nr, &l_buf);
+        }
+    } while (nr > 0);
+
+    if (l_buf->p > l_buf->s){
+        *l_buf->p = 0;
+        log_line_if(l_buf->s);
+    }
+}
+
+static void *relay_thread(void *arg)
 {
     unsigned running;
 
@@ -138,10 +176,16 @@ static void start_relayer(struct relay_fd *r_fd)
 
 static unsigned count_relays(struct relay_fd *relays)
 {
+    unsigned cnt;
+
+    cnt = 0;
+
     while (relays) {
-        ++relayers;
+        ++cnt;
         relays = relays->p;
     }
+
+    return cnt;
 }
 
 static void run_relayers(struct relay_fd *relays)
@@ -159,6 +203,19 @@ static void run_relayers(struct relay_fd *relays)
     pthread_mutex_lock(&lock);
     while (relayers)
         pthread_cond_wait(&cond, &lock);
+}
+
+static void init_sysl_pre(void)
+{
+    char errbuf[1024];
+    int rc;
+
+    rc = regcomp(&sysl_pre, SYSLOG_PRE, REG_EXTENDED);
+    if (rc == 0) return;
+
+    regerror(rc, &sysl_pre, errbuf, sizeof(errbuf));
+    err("%s: failed to compile prefix regex: %s(%d)", errbuf, rc);
+    exit(1);
 }
 
 /*  main */
@@ -187,6 +244,8 @@ int main(int argc, char **argv)
 
     argv += optind;
     if (!*argv) usage();
+
+    init_sysl_pre();
 
     create_pipes(relays);
     switch (fork()) {
