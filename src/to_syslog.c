@@ -128,6 +128,14 @@ static void Write(int fd, char *p, char *e)
 
 static int has_syslog_hdr(char *l)
 {
+    /*
+      A syslog-header is considered to be
+
+      - a sequence of printable, non-space characters
+      - followed by '['
+      - followed by a sequence of digits
+      - followed by ']: '
+    */
     unsigned char c;
     char *ll;
 
