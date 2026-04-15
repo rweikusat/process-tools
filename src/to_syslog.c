@@ -163,18 +163,18 @@ static void log_line_if(char *l)
 static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
 {
     char *tmp;
-    size_t need, have, new_sz;
+    size_t need, ofs, new_sz;
 
     need = e - s;
-    have = l_buf->e - l_buf->p;
-    if (have < need) {
+    if ((l_buf->e - l_buf->p) < need) {
+        ofs = l_buf->p - l_buf->s;
         new_sz = need + (l_buf->e - l_buf->s);
         tmp = realloc(l_buf->s, new_sz);
         if (!tmp) die("realloc");
 
         l_buf->s = tmp;
         l_buf->e = tmp + new_sz;
-        l_buf->p = tmp + have;
+        l_buf->p = tmp + ofs;
     }
 
     memcpy(l_buf->p, s, need);
@@ -191,8 +191,8 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
 
     if (l_buf->p > l_buf->s) {
         do
-            c = *p;
-        while (c != '\n' && ++p < e);
+            c = *p++;
+        while (c != '\n' && p < e);
         l_buf_append(s, p, l_buf);
         if (c != '\n') return;
 
@@ -200,7 +200,7 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
         log_line_if(l_buf->s);
 
         l_buf->p = l_buf->s;
-        s = ++p;
+        s = p;
     }
 
     while (s < e) {
