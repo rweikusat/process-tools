@@ -168,7 +168,7 @@ static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
     }
 
     memcpy(l_buf->p, s, need);
-    l_buf->p += neeed;
+    l_buf->p += need;
 }
 
 static void log_lines(char *s, size_t len, struct l_buf *l_buf)
