@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -299,6 +300,23 @@ static void run_relayers(struct relay_fd *relays)
     pthread_mutex_lock(&lock);
     while (relayers)
         pthread_cond_wait(&cond, &lock);
+}
+
+static void run_cmd(struct relay_fd *relays, char **argv)
+{
+    int rc;
+
+    while (relays) {
+        rc = dup2(relays->pipe[1], relays->to);
+        if (rc == -1) die("dup2");
+        close(*relays->pipe);
+        close(relays->pipe[1]);
+
+        relays = relays->p;
+    }
+
+    execvp(*argv, argv);
+    die("execvp");
 }
 
 /*  main */
