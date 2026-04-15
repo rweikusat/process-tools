@@ -6,13 +6,9 @@
 /*  includes */
 #include <alloc.h>
 #include <pthread.h>
-#include <regex.h>
 #include <stdlib.h>
 
 #include "diag.h"
-
-/*  macros */
-#define SYSLOG_PRE "^[^ \t[]+\\[[0-9]+\\]: "
 
 /*  types */
 struct relay_fd {
@@ -36,7 +32,6 @@ static struct relay_fd def_relay[] = {
 static unsigned relayers;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static regex_t sysl_pre;
 
 /*  routines */
 static void usage(void)
@@ -217,19 +212,6 @@ static void run_relayers(struct relay_fd *relays)
         pthread_cond_wait(&cond, &lock);
 }
 
-static void init_sysl_pre(void)
-{
-    char errbuf[1024];
-    int rc;
-
-    rc = regcomp(&sysl_pre, SYSLOG_PRE, REG_EXTENDED);
-    if (rc == 0) return;
-
-    regerror(rc, &sysl_pre, errbuf, sizeof(errbuf));
-    err("%s: failed to compile prefix regex: %s(%d)", errbuf, rc);
-    exit(1);
-}
-
 /*  main */
 int main(int argc, char **argv)
 {
@@ -256,8 +238,6 @@ int main(int argc, char **argv)
 
     argv += optind;
     if (!*argv) usage();
-
-    init_sysl_pre();
 
     create_pipes(relays);
     switch (fork()) {
