@@ -4,9 +4,10 @@
 */
 
 /*  includes */
-#include <alloc.h>
+#include <ctype.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "diag.h"
 
@@ -65,7 +66,8 @@ static struct relay_fd *parse_fd_list(char *fdl)
     while (c = *fdl, c) {
         if (c == ',') {
             if (fd != -1) {
-                r_fd = alloc(sizeof(*r_fd));
+                r_fd = malloc(sizeof(*r_fd));
+                if (!r_fd) die("malloc");
                 r_fd->to = fd;
                 r_fd->p = NULL;
 
@@ -88,7 +90,8 @@ static struct relay_fd *parse_fd_list(char *fdl)
     }
 
     if (fd != -1) {
-        r_fd = alloc(sizeof(*r_fd));
+        r_fd = malloc(sizeof(*r_fd));
+        if (!r_fd) die("malloc");
         r_fd->to = fd;
         r_fd->p = NULL;
 
@@ -108,7 +111,7 @@ static void create_pipes(struct relay_fd *r_fds)
     } while (r_fds = r_fds->p, r_fds);
 }
 
-static Write(int fd, char *p, char *e)
+static void Write(int fd, char *p, char *e)
 {
     ssize_t nw;
 
@@ -146,6 +149,27 @@ static void log_line_if(char *l)
     msg(l);
 }
 
+static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
+{
+    char *tmp;
+    size_t need, have, new_sz;
+
+    need = e - s;
+    have = l_buf->e - l_buf->p;
+    if (have < need) {
+        new_sz = need + (l_buf->e - l_buf->s);
+        tmp = realloc(l_buf->s, new_sz);
+        if (!tmp) die("realloc");
+
+        l_buf->s = tmp;
+        l_buf->e = tmp + new_sz;
+        l_buf->p = tmp + have;
+    }
+
+    memcpy(l_buf->p, s, need);
+    l_buf->p += neeed;
+}
+
 static void log_lines(char *s, size_t len, struct l_buf *l_buf)
 {
     char *p, *e;
@@ -154,7 +178,7 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
     p = s;
     e = s + len;
 
-    if (l_buf->p > l_bugf->s) {
+    if (l_buf->p > l_buf->s) {
         do
             c = *p;
         while (c != '\n' && ++p < e);
@@ -193,10 +217,11 @@ static void do_relay(struct relay_fd *r_fd)
 
     from = *r_fd->pipe;
     close(r_fd->pipe[1]);
+    to = r_fd->to;
 
-    l_buf->p = l_buf->s = malloc(128);
-    if (!l_buf->s) die("malloc");
-    l_buf->e = l_buf->s + 128;
+    l_buf.p = l_buf.s = malloc(128);
+    if (!l_buf.s) die("malloc");
+    l_buf.e = l_buf.s + 128;
 
     do {
         nr = read(from, buf, sizeof(buf));
@@ -207,9 +232,9 @@ static void do_relay(struct relay_fd *r_fd)
         }
     } while (nr > 0);
 
-    if (l_buf->p > l_buf->s){
-        *l_buf->p = 0;
-        log_line_if(l_buf->s);
+    if (l_buf.p > l_buf.s){
+        *l_buf.p = 0;
+        log_line_if(l_buf.s);
     }
 }
 
