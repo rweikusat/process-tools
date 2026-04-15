@@ -38,11 +38,13 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: to-syslog [-f <fd>[,<fd>*] <cmd> <arg>*");
+    msg("Usage: to-syslog [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
     msg("    Execute a command and relay output on certain file descriptors");
     msg("    (default: 1 and 2) to syslog.");
     msg("    The -f option can be used to specify a different set of file");
     msg("    descriptors.");
+    msg("    The -n option can be used to specify an alternate identifier for");
+    msg("    log messages (default <cmd>).");
     msg("    Output lines matching the Perl pattern '^\\w\\[0-9+\\]: ' won't be");
     msg("    won't be relayed as it's assumed that they were already sent to");
     msg("    syslog.");
@@ -324,11 +326,14 @@ static void run_cmd(struct relay_fd *relays, char **argv)
 int main(int argc, char **argv)
 {
     struct relay_fd *relays;
+    char *name;
     int c;
 
     init_diag("to-syslog");
     relays = def_relay;
-    while (c = getopt(argc, argv, "+f:"), c != -1)
+    name = NULL;
+
+    while (c = getopt(argc, argv, "+f:n:"), c != -1)
         switch (c) {
         case 'f':
             relays = parse_fd_list(optarg);
@@ -338,6 +343,10 @@ int main(int argc, char **argv)
                 exit(1);
             }
 
+            break;
+
+        case 'n':
+            name = optarg;
             break;
 
         default:
@@ -354,7 +363,9 @@ int main(int argc, char **argv)
 
     case 0:
         closelog();
-        openlog(*argv, LOG_PID, LOG_USER);
+        if (!name) name = *argv;
+        openlog(name, LOG_PID, LOG_USER);
+
         run_relayers(relays);
         break;
 
