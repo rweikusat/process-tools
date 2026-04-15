@@ -84,7 +84,7 @@ static struct relay_fd *parse_fd_list(char *fdl)
                 exit(1);
             }
 
-            fd = fd * 10 + c;
+            fd = fd == -1 ? c : fd * 10 + c;
         }
 
         ++fdl;
