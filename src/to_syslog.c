@@ -300,6 +300,7 @@ static void run_relayers(struct relay_fd *relays)
     pthread_mutex_lock(&lock);
     while (relayers)
         pthread_cond_wait(&cond, &lock);
+    pthread_mutex_unlock(&lock);
 }
 
 static void run_cmd(struct relay_fd *relays, char **argv)
