@@ -146,6 +146,43 @@ static void log_line_if(char *l)
     msg(l);
 }
 
+static void log_lines(char *s, size_t len, struct l_buf *l_buf)
+{
+    char *p, *e;
+    int c;
+
+    p = s;
+    e = s + len;
+
+    if (l_buf->p > l_bugf->s) {
+        do
+            c = *p;
+        while (c != '\n' && ++p < e);
+        l_buf_append(s, p, l_buf);
+        if (c != '\n') return;
+
+        l_buf->p[-1] = 0;
+        log_line_if(l_buf->s);
+
+        l_buf->p = l_buf->s;
+        s = ++p;
+    }
+
+    while (s < e) {
+        do
+            c = *p;
+        while (c != '\n' && ++p < e);
+        if (c != '\n') {
+            l_buf_append(s, p, l_buf);
+            return;
+        }
+
+        *p = 0;
+        log_line_if(s);
+
+        s = ++p;
+    }
+}
 
 static void do_relay(struct relay_fd *r_fd)
 {
