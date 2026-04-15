@@ -120,6 +120,33 @@ static Write(int fd, char *p, char *e)
     }
 }
 
+static int has_syslog_hdr(char *l)
+{
+    unsigned char c;
+    char *ll;
+
+    ll = l;
+    while (c = *ll, c != '[' && isprint(c) && !isspace(c))
+        ++ll;
+    if (c != '[' || ll == l) return 0;
+
+    l = ++ll;
+    while (c = *ll, isdigit(c)) ++ll;
+    if (c != ']' || ll == l) return 0;
+
+    if (ll[1] != ':') return 0;
+    if (ll[2]!= ' ') return 0;
+
+    return 1;
+}
+
+static void log_line_if(char *l)
+{
+    if (has_syslog_hdr(l)) return;
+    msg(l);
+}
+
+
 static void do_relay(struct relay_fd *r_fd)
 {
     char buf[4096];
