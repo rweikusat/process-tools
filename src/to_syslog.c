@@ -327,7 +327,7 @@ int main(int argc, char **argv)
 
     init_diag("to-syslog");
     relays = def_relay;
-    while (c = getopt(argc, argv, "+f"), c != -1)
+    while (c = getopt(argc, argv, "+f:"), c != -1)
         switch (c) {
         case 'f':
             relays = parse_fd_list(optarg);
@@ -352,6 +352,8 @@ int main(int argc, char **argv)
         die("fork");
 
     case 0:
+        closelog();
+        openlog(*argv, LOG_PID, LOG_USER);
         run_relayers(relays);
         break;
 
