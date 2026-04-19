@@ -38,7 +38,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: to-syslog [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
+    msg("Usage: syslogging [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
     msg("    Execute a command and relay output on certain file descriptors");
     msg("    (default: 1 and 2) to syslog.");
     msg("    The -f option can be used to specify a different set of file");

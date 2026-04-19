@@ -35,7 +35,8 @@ PLAIN_PRGS := \
 	launch \
 	lock \
 	monitor \
-	pause
+	pause \
+	syslogging
 
 # hyphen programs, depend on .o file with - translated to _
 #
@@ -43,8 +44,7 @@ HY_PRGS := \
 	ch-dir \
 	have-locks \
 	monitor-ctrl \
-	sane-env \
-	to-syslog
+	sane-env
 
 PRGS := $(addprefix bin/, $(PLAIN_PRGS) $(HY_PRGS))
 
