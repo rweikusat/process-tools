@@ -31,16 +31,28 @@ static struct relay_fd def_relay[] = {
         .to = 2 }
 };
 
+static int three_esc[255] = {
+    ['%'] = 1,
+    ['('] = 1,
+    [')'] = 1,
+    [']'] = 1,
+    ['#'] = 1
+};
+
 static unsigned relayers;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
+static void (*log_it)(char *);
+
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: syslogging [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
+    msg("Usage: syslogging [-e] [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
     msg("    Execute a command and relay output on certain file descriptors");
     msg("    (default: 1 and 2) to syslog.");
+    msg("    The -e option can be used to request stripping of terminal");
+    msg("    control escape sequences from lines of text before logging.");
     msg("    The -f option can be used to specify a different set of file");
     msg("    descriptors.");
     msg("    The -n option can be used to specify an alternate identifier for");
@@ -154,10 +166,20 @@ static int has_syslog_hdr(char *l)
     return 1;
 }
 
+static void strip_and_log(char *l)
+{
+    msg("%s", l);
+}
+
+static void just_log(char *l)
+{
+    msg("%s", l);
+}
+
 static void log_line_if(char *l)
 {
     if (has_syslog_hdr(l)) return;
-    msg(l);
+    log_it("%s", l);
 }
 
 static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
@@ -340,9 +362,14 @@ int main(int argc, char **argv)
     init_diag("to-syslog");
     relays = def_relay;
     name = NULL;
+    log_it = just_log;
 
-    while (c = getopt(argc, argv, "+f:n:"), c != -1)
+    while (c = getopt(argc, argv, "+ef:n:"), c != -1)
         switch (c) {
+        case 'e':
+            log_it = strip_and_log;
+            break;
+
         case 'f':
             relays = parse_fd_list(optarg);
             if (!relays) {
