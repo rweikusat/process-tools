@@ -100,7 +100,7 @@ static void add_fd(int fd, struct relay_fd ***p_chain)
 
 static struct relay_fd *parse_fd_list(char *fdl)
 {
-    struct relay_fd *first, **chain, *r_fd;
+    struct relay_fd *first, **chain;
     int fd, c;
 
     chain = &first;
