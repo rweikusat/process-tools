@@ -65,16 +65,15 @@ static void usage(void)
 {
     msg("Usage: syslogging [-e] [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
     msg("    Execute a command and relay output on certain file descriptors");
-    msg("    (default: 1 and 2) to syslog.");
+    msg("    (default: 1 and 2) to syslog. Captured output lines starting");
+    msg("    '<word>[<pid>]: ' won't be logged as it's assumed they were");
+    msg("    logged already.");
     msg("    The -e option can be used to request stripping of terminal");
     msg("    control escape sequences from lines of text before logging.");
     msg("    The -f option can be used to specify a different set of file");
     msg("    descriptors.");
     msg("    The -n option can be used to specify an alternate identifier for");
     msg("    log messages (default <cmd>).");
-    msg("    Output lines matching the Perl pattern '^\\w\\[0-9+\\]: ' won't be");
-    msg("    won't be relayed as it's assumed that they were already sent to");
-    msg("    syslog.");
 
     exit(1);
 }
