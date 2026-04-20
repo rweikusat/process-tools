@@ -58,7 +58,7 @@ static unsigned relayers;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-static void (*log_it)(char *);
+static void (*log_it)(char *, size_t);
 
 /*  routines */
 static void usage(void)
@@ -227,7 +227,7 @@ static void just_log(char *l, size_t len)
 static void log_line_if(char *l, size_t len)
 {
     if (has_syslog_hdr(l)) return;
-    log_it("%s", l, len);
+    log_it(l, len);
 }
 
 static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
@@ -315,7 +315,7 @@ static void do_relay(struct relay_fd *r_fd)
 
     if (l_buf.p > l_buf.s){
         *l_buf.p = 0;
-        log_line_if(l_buf.s);
+        log_line_if(l_buf.s, l_buf.p - l_buf.s);
     }
 }
 
