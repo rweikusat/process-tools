@@ -131,6 +131,7 @@ static struct relay_fd *parse_fd_list(char *fdl)
 static void create_pipes(struct relay_fd *r_fds)
 {
     int rc;
+
     do {
         rc = pipe(r_fds->pipe);
         if (rc == -1) die("pipe");
