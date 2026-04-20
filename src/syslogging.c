@@ -85,6 +85,19 @@ static inline int c2dg(unsigned c)
     return -1;
 }
 
+static void add_fd(int fd, struct relay_fd ***p_chain)
+{
+    struct relay_fd *r_fd;
+
+    r_fd = malloc(sizeof(*r_fd));
+    if (!r_fd) die("malloc");
+    r_fd->to = fd;
+    r_fd->p = NULL;
+
+    **p_chain = r_fd;
+    *p_chain = &r_fd->p;
+}
+
 static struct relay_fd *parse_fd_list(char *fdl)
 {
     struct relay_fd *first, **chain, *r_fd;
@@ -95,14 +108,7 @@ static struct relay_fd *parse_fd_list(char *fdl)
     while (c = *fdl, c) {
         if (c == ',') {
             if (fd != -1) {
-                r_fd = malloc(sizeof(*r_fd));
-                if (!r_fd) die("malloc");
-                r_fd->to = fd;
-                r_fd->p = NULL;
-
-                *chain = r_fd;
-                chain = &r_fd->p;
-
+                add_fd(fd, &chain);
                 fd = -1;
             }
         } else {
@@ -118,16 +124,7 @@ static struct relay_fd *parse_fd_list(char *fdl)
         ++fdl;
     }
 
-    if (fd != -1) {
-        r_fd = malloc(sizeof(*r_fd));
-        if (!r_fd) die("malloc");
-        r_fd->to = fd;
-        r_fd->p = NULL;
-
-        *chain = r_fd;
-        chain = &r_fd->p;
-    }
-
+    if (fd != -1) add_fd(fd, &chain);
     return first;
 }
 
