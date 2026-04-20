@@ -233,9 +233,9 @@ static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
     size_t need, ofs, new_sz;
 
     need = e - s;
-    if ((l_buf->e - l_buf->p) < need) {
+    if (l_buf->e - l_buf->p < need + 1) {
         ofs = l_buf->p - l_buf->s;
-        new_sz = need + (l_buf->e - l_buf->s);
+        new_sz = 1 + need + (l_buf->e - l_buf->s);
         tmp = realloc(l_buf->s, new_sz);
         if (!tmp) die("realloc");
 
