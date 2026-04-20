@@ -38,9 +38,9 @@ struct l_buf {
 };
 
 /*  variables */
-static struct relay_fd def_relay[] = {
+static struct relay_fd def_relays[] = {
     {
-        .p = def_relay + 1,
+        .p = def_relays + 1,
         .to = 1 },
     {
         .to = 2 }
@@ -405,7 +405,7 @@ int main(int argc, char **argv)
     int c;
 
     init_diag("to-syslog");
-    relays = def_relay;
+    relays = def_relays;
     name = NULL;
     log_it = just_log;
 
