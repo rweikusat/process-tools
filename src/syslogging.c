@@ -12,6 +12,21 @@
 
 #include "diag.h"
 
+/*  constants */
+enum {
+    ST_COPY,
+    ST_ESC,
+    ST_3ESC,
+    ST_CSI
+};
+
+enum {
+    ESC =		27,
+    CSIS =		'[',
+    CSI_FIN_LO =	0x40,
+    CSI_FIN_HI =	0x7e
+};
+
 /*  types */
 struct relay_fd {
     struct relay_fd *p;
@@ -166,20 +181,53 @@ static int has_syslog_hdr(char *l)
     return 1;
 }
 
-static void strip_and_log(char *l)
+static void strip_and_log(char *l, size_t len)
 {
+    char *s, *p;
+    int state, c;
+
+    p = s = alloca(len);
+    state = ST_COPY;
+
+    while (c = *l, c) {
+        switch (state) {
+        case ST_COPY:
+            if (c != ESC) *p++ = c;
+            else state = ST_ESC;
+            break;
+
+        case ST_ESC:
+            if (three_esc[c]) state = ST_3ESC;
+            else if (c == CSIS) state = ST_CSI;
+            else state = ST_COPY;
+            break;
+
+        case ST_3ESC:
+            state = ST_COPY;
+            break;
+
+        case ST_CSI:
+            if (c >= CSI_FIN_LO && c <= CSI_FIN_HI)
+                state = ST_COPY;
+        }
+
+        ++l;
+    }
+
+    *p = 0;
+    msg("%s", s);
+}
+
+static void just_log(char *l, size_t len)
+{
+    (void)len;
     msg("%s", l);
 }
 
-static void just_log(char *l)
-{
-    msg("%s", l);
-}
-
-static void log_line_if(char *l)
+static void log_line_if(char *l, size_t len)
 {
     if (has_syslog_hdr(l)) return;
-    log_it("%s", l);
+    log_it("%s", l, len);
 }
 
 static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
@@ -218,8 +266,8 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
         l_buf_append(s, p, l_buf);
         if (c != '\n') return;
 
-        l_buf->p[-1] = 0;
-        log_line_if(l_buf->s);
+        *--l_buf->p = 0;
+        log_line_if(l_buf->s, l_buf->p - l_buf->s);
 
         l_buf->p = l_buf->s;
         s = p;
@@ -235,7 +283,7 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
         }
 
         *p = 0;
-        log_line_if(s);
+        log_line_if(s, p - s);
 
         s = ++p;
     }
