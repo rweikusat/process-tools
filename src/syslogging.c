@@ -22,7 +22,7 @@ enum {
 
 enum {
     ESC =		27,
-    CSIS =		'[',
+    CSIS =		'[',    /* CSI start */
     CSI_FIN_LO =	0x40,
     CSI_FIN_HI =	0x7e
 };
