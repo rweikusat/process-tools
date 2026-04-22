@@ -27,6 +27,11 @@ enum {
     CSI_FIN_HI =	0x7e
 };
 
+enum {
+    INITIAL_L_BUF =	128,
+    READ_BUF =		4096
+};
+
 /*  types */
 struct to_log {
     struct to_log *p;
@@ -258,7 +263,7 @@ static void Write(int fd, char *p, char *e)
 
 static void do_log(struct to_log *log_fd)
 {
-    char buf[4096];
+    char buf[READ_BUF];
     struct l_buf l_buf;
     ssize_t nr;
     int from, to;
@@ -267,9 +272,9 @@ static void do_log(struct to_log *log_fd)
     close(log_fd->pipe[1]);
     to = log_fd->fd;
 
-    l_buf.p = l_buf.s = malloc(128);
+    l_buf.p = l_buf.s = malloc(INITIAL_L_BUF);
     if (!l_buf.s) die("malloc");
-    l_buf.e = l_buf.s + 128;
+    l_buf.e = l_buf.s + INITIAL_L_BUF;
 
     do {
         nr = read(from, buf, sizeof(buf));
