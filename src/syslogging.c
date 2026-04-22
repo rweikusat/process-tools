@@ -328,7 +328,6 @@ static unsigned count_to_log(struct to_log *to_log)
     unsigned cnt;
 
     cnt = 0;
-
     while (to_log) {
         ++cnt;
         to_log = to_log->p;
