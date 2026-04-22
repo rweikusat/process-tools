@@ -97,7 +97,7 @@ static void add_fd_to(int fd, struct relay_fd **r_fds)
     *r_fds = r_fd;
 }
 
-static struct relay_fd *parse_fd_list(char *fd_specs)
+static struct relay_fd *parse_fd_specs(char *fd_specs)
 {
     struct relay_fd *r_fds;
     int fd, c;
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
             break;
 
         case 'f':
-            relays = parse_fd_list(optarg);
+            relays = parse_fd_specs(optarg);
             if (!relays) {
                 err("%s: -f witout actual fd list: %s",
                     __func__, optarg);
