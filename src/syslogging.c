@@ -85,47 +85,46 @@ static inline int c2dg(unsigned c)
     return -1;
 }
 
-static void add_fd(int fd, struct relay_fd ***p_chain)
+static void add_fd_to(int fd, struct relay_fd **r_fds)
 {
     struct relay_fd *r_fd;
 
     r_fd = malloc(sizeof(*r_fd));
     if (!r_fd) die("malloc");
     r_fd->to = fd;
-    r_fd->p = NULL;
 
-    **p_chain = r_fd;
-    *p_chain = &r_fd->p;
+    r_fd->p = *r_fds;
+    *r_fds = r_fd;
 }
 
-static struct relay_fd *parse_fd_list(char *fdl)
+static struct relay_fd *parse_fd_list(char *fd_specs)
 {
-    struct relay_fd *first, **chain;
+    struct relay_fd *r_fds;
     int fd, c;
 
-    chain = &first;
+    r_fds = NULL;
     fd = -1;
-    while (c = *fdl, c) {
+    while (c = *fd_specs, c) {
         if (c == ',') {
             if (fd != -1) {
-                add_fd(fd, &chain);
+                add_fd_to(fd, &r_fds);
                 fd = -1;
             }
         } else {
             c = c2dg(c);
             if (c == -1) {
-                err("%s: garbage in fd spec: %s", __func__, fdl);
+                err("%s: garbage in fd spec: %s", __func__, fd_specs);
                 exit(1);
             }
 
             fd = fd == -1 ? c : fd * 10 + c;
         }
 
-        ++fdl;
+        ++fd_specs;
     }
 
-    if (fd != -1) add_fd(fd, &chain);
-    return first;
+    if (fd != -1) add_fd_to(fd, &r_fds);
+    return r_fds;
 }
 
 static void create_pipes(struct relay_fd *r_fds)
