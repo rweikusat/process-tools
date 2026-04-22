@@ -416,12 +416,6 @@ int main(int argc, char **argv)
 
         case 'f':
             relays = parse_fd_specs(optarg);
-            if (!relays) {
-                err("%s: -f witout actual fd list: %s",
-                    __func__, optarg);
-                exit(1);
-            }
-
             break;
 
         case 'n':
@@ -431,6 +425,11 @@ int main(int argc, char **argv)
         default:
             usage();
         }
+
+    if (!relays) {
+        err("%s: no file descriptors specified", __func__);
+        exit(1);
+    }
 
     argv += optind;
     if (!*argv) usage();
