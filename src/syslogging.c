@@ -187,17 +187,17 @@ static void log_line_if(char *l, size_t len)
 static void l_buf_append(char *s, char *e, struct l_buf *l_buf)
 {
     char *tmp;
-    size_t need, ofs, new_sz;
+    size_t need, ofs, want;
 
     need = e - s;
     if (l_buf->e - l_buf->p < need + 1) {
         ofs = l_buf->p - l_buf->s;
-        new_sz = 1 + need + (l_buf->e - l_buf->s);
-        tmp = realloc(l_buf->s, new_sz);
+        want = 1 + need + (l_buf->e - l_buf->s);
+        tmp = realloc(l_buf->s, want);
         if (!tmp) die("realloc");
 
         l_buf->s = tmp;
-        l_buf->e = tmp + new_sz;
+        l_buf->e = tmp + want;
         l_buf->p = tmp + ofs;
     }
 
