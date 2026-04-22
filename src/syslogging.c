@@ -61,6 +61,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static void (*log_it)(char *, size_t);
 
 /*  routines */
+/**  misc */
 static void usage(void)
 {
     msg("Usage: syslogging [-e] [-f <fd>[,<fd>*] [-n <name>] <cmd> <arg>*");
@@ -78,55 +79,6 @@ static void usage(void)
     exit(1);
 }
 
-static inline int c2dg(unsigned c)
-{
-    c -= '0';
-    if (c < 10) return c;
-    return -1;
-}
-
-static void add_fd_to(int fd, struct to_log **to_log)
-{
-    struct to_log *log_fd;
-
-    log_fd = malloc(sizeof(*log_fd));
-    if (!to_log) die("malloc");
-    log_fd->fd = fd;
-
-    log_fd->p = *to_log;
-    *to_log = log_fd;
-}
-
-static struct to_log *parse_fd_specs(char *fd_specs)
-{
-    struct to_log *to_log;
-    int fd, c;
-
-    to_log = NULL;
-    fd = -1;
-    while (c = *fd_specs, c) {
-        if (c == ',') {
-            if (fd != -1) {
-                add_fd_to(fd, &to_log);
-                fd = -1;
-            }
-        } else {
-            c = c2dg(c);
-            if (c == -1) {
-                err("%s: garbage in fd spec: %s", __func__, fd_specs);
-                exit(1);
-            }
-
-            fd = fd == -1 ? c : fd * 10 + c;
-        }
-
-        ++fd_specs;
-    }
-
-    if (fd != -1) add_fd_to(fd, &to_log);
-    return to_log;
-}
-
 static void create_pipes(struct to_log *to_log)
 {
     int rc;
@@ -137,18 +89,24 @@ static void create_pipes(struct to_log *to_log)
     } while (to_log = to_log->p, to_log);
 }
 
-static void Write(int fd, char *p, char *e)
+static void run_cmd(struct to_log *to_log, char **argv)
 {
-    ssize_t nw;
+    int rc;
 
-    while (p < e) {
-        nw = write(fd, p, e - p);
-        if (nw == -1) die("write");
+    while (to_log) {
+        rc = dup2(to_log->pipe[1], to_log->fd);
+        if (rc == -1) die("dup2");
+        close(*to_log->pipe);
+        close(to_log->pipe[1]);
 
-        p += nw;
+        to_log = to_log->p;
     }
+
+    execvp(*argv, argv);
+    die("execvp");
 }
 
+/**  logging */
 static int has_syslog_hdr(char *l)
 {
     /*
@@ -285,6 +243,19 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
     }
 }
 
+/**  logging threads */
+static void Write(int fd, char *p, char *e)
+{
+    ssize_t nw;
+
+    while (p < e) {
+        nw = write(fd, p, e - p);
+        if (nw == -1) die("write");
+
+        p += nw;
+    }
+}
+
 static void do_log(struct to_log *log_fd)
 {
     char buf[4096];
@@ -379,21 +350,54 @@ static void run_loggers(struct to_log *to_log)
     pthread_mutex_unlock(&lock);
 }
 
-static void run_cmd(struct to_log *to_log, char **argv)
+/**  handle -f */
+static inline int c2dg(unsigned c)
 {
-    int rc;
+    c -= '0';
+    if (c < 10) return c;
+    return -1;
+}
 
-    while (to_log) {
-        rc = dup2(to_log->pipe[1], to_log->fd);
-        if (rc == -1) die("dup2");
-        close(*to_log->pipe);
-        close(to_log->pipe[1]);
+static void add_fd_to(int fd, struct to_log **to_log)
+{
+    struct to_log *log_fd;
 
-        to_log = to_log->p;
+    log_fd = malloc(sizeof(*log_fd));
+    if (!to_log) die("malloc");
+    log_fd->fd = fd;
+
+    log_fd->p = *to_log;
+    *to_log = log_fd;
+}
+
+static struct to_log *parse_fd_specs(char *fd_specs)
+{
+    struct to_log *to_log;
+    int fd, c;
+
+    to_log = NULL;
+    fd = -1;
+    while (c = *fd_specs, c) {
+        if (c == ',') {
+            if (fd != -1) {
+                add_fd_to(fd, &to_log);
+                fd = -1;
+            }
+        } else {
+            c = c2dg(c);
+            if (c == -1) {
+                err("%s: garbage in fd spec: %s", __func__, fd_specs);
+                exit(1);
+            }
+
+            fd = fd == -1 ? c : fd * 10 + c;
+        }
+
+        ++fd_specs;
     }
 
-    execvp(*argv, argv);
-    die("execvp");
+    if (fd != -1) add_fd_to(fd, &to_log);
+    return to_log;
 }
 
 /*  main */
