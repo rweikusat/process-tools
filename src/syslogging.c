@@ -28,9 +28,9 @@ enum {
 };
 
 /*  types */
-struct relay_fd {
-    struct relay_fd *p;
-    int pipe[2], to;
+struct to_log {
+    struct to_log *p;
+    int pipe[2], fd;
 };
 
 struct l_buf {
@@ -38,12 +38,12 @@ struct l_buf {
 };
 
 /*  variables */
-static struct relay_fd def_relays[] = {
+static struct to_log def_to_log[] = {
     {
-        .p = def_relays + 1,
-        .to = 1 },
+        .p = def_to_log + 1,
+        .fd = 1 },
     {
-        .to = 2 }
+        .fd = 2 }
 };
 
 static int three_esc[255] = {
@@ -54,7 +54,7 @@ static int three_esc[255] = {
     ['#'] = 1
 };
 
-static unsigned relayers;
+static unsigned loggers;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -85,29 +85,29 @@ static inline int c2dg(unsigned c)
     return -1;
 }
 
-static void add_fd_to(int fd, struct relay_fd **r_fds)
+static void add_fd_to(int fd, struct to_log **to_log)
 {
-    struct relay_fd *r_fd;
+    struct to_log *log_fd;
 
-    r_fd = malloc(sizeof(*r_fd));
-    if (!r_fd) die("malloc");
-    r_fd->to = fd;
+    log_fd = malloc(sizeof(*log_fd));
+    if (!to_log) die("malloc");
+    log_fd->fd = fd;
 
-    r_fd->p = *r_fds;
-    *r_fds = r_fd;
+    log_fd->p = *to_log;
+    *to_log = log_fd;
 }
 
-static struct relay_fd *parse_fd_specs(char *fd_specs)
+static struct to_log *parse_fd_specs(char *fd_specs)
 {
-    struct relay_fd *r_fds;
+    struct to_log *to_log;
     int fd, c;
 
-    r_fds = NULL;
+    to_log = NULL;
     fd = -1;
     while (c = *fd_specs, c) {
         if (c == ',') {
             if (fd != -1) {
-                add_fd_to(fd, &r_fds);
+                add_fd_to(fd, &to_log);
                 fd = -1;
             }
         } else {
@@ -123,18 +123,18 @@ static struct relay_fd *parse_fd_specs(char *fd_specs)
         ++fd_specs;
     }
 
-    if (fd != -1) add_fd_to(fd, &r_fds);
-    return r_fds;
+    if (fd != -1) add_fd_to(fd, &to_log);
+    return to_log;
 }
 
-static void create_pipes(struct relay_fd *r_fds)
+static void create_pipes(struct to_log *to_log)
 {
     int rc;
 
     do {
-        rc = pipe(r_fds->pipe);
+        rc = pipe(to_log->pipe);
         if (rc == -1) die("pipe");
-    } while (r_fds = r_fds->p, r_fds);
+    } while (to_log = to_log->p, to_log);
 }
 
 static void Write(int fd, char *p, char *e)
@@ -285,16 +285,16 @@ static void log_lines(char *s, size_t len, struct l_buf *l_buf)
     }
 }
 
-static void do_relay(struct relay_fd *r_fd)
+static void do_log(struct to_log *log_fd)
 {
     char buf[4096];
     struct l_buf l_buf;
     ssize_t nr;
     int from, to;
 
-    from = *r_fd->pipe;
-    close(r_fd->pipe[1]);
-    to = r_fd->to;
+    from = *log_fd->pipe;
+    close(log_fd->pipe[1]);
+    to = log_fd->fd;
 
     l_buf.p = l_buf.s = malloc(128);
     if (!l_buf.s) die("malloc");
@@ -315,26 +315,26 @@ static void do_relay(struct relay_fd *r_fd)
     }
 }
 
-static void *relay_thread(void *arg)
+static void *log_thread(void *arg)
 {
     unsigned running;
 
-    do_relay(arg);
+    do_log(arg);
 
     pthread_mutex_lock(&lock);
-    running = --relayers;
+    running = --loggers;
     pthread_mutex_unlock(&lock);
 
     if (!running) pthread_cond_signal(&cond);
     return NULL;
 }
 
-static void start_relayer(struct relay_fd *r_fd)
+static void start_logger(struct to_log *log_fd)
 {
     pthread_t tid;
     int rc;
 
-    rc = pthread_create(&tid, NULL, relay_thread, r_fd);
+    rc = pthread_create(&tid, NULL, log_thread, log_fd);
     if (rc) {
         errno = rc;
         die("pthread_create");
@@ -347,49 +347,49 @@ static void start_relayer(struct relay_fd *r_fd)
     }
 }
 
-static unsigned count_relays(struct relay_fd *relays)
+static unsigned count_to_log(struct to_log *to_log)
 {
     unsigned cnt;
 
     cnt = 0;
 
-    while (relays) {
+    while (to_log) {
         ++cnt;
-        relays = relays->p;
+        to_log = to_log->p;
     }
 
     return cnt;
 }
 
-static void run_relayers(struct relay_fd *relays)
+static void run_loggers(struct to_log *to_log)
 {
-    struct relay_fd *mine;
+    struct to_log *mine;
 
-    relayers = count_relays(relays) - 1;
-    mine = relays;
+    loggers = count_to_log(to_log) - 1;
+    mine = to_log;
 
-    while (relays = relays->p, relays)
-        start_relayer(relays);
+    while (to_log = to_log->p, to_log)
+        start_logger(to_log);
 
-    do_relay(mine);
+    do_log(mine);
 
     pthread_mutex_lock(&lock);
-    while (relayers)
+    while (loggers)
         pthread_cond_wait(&cond, &lock);
     pthread_mutex_unlock(&lock);
 }
 
-static void run_cmd(struct relay_fd *relays, char **argv)
+static void run_cmd(struct to_log *to_log, char **argv)
 {
     int rc;
 
-    while (relays) {
-        rc = dup2(relays->pipe[1], relays->to);
+    while (to_log) {
+        rc = dup2(to_log->pipe[1], to_log->fd);
         if (rc == -1) die("dup2");
-        close(*relays->pipe);
-        close(relays->pipe[1]);
+        close(*to_log->pipe);
+        close(to_log->pipe[1]);
 
-        relays = relays->p;
+        to_log = to_log->p;
     }
 
     execvp(*argv, argv);
@@ -399,12 +399,12 @@ static void run_cmd(struct relay_fd *relays, char **argv)
 /*  main */
 int main(int argc, char **argv)
 {
-    struct relay_fd *relays;
+    struct to_log *to_log;
     char *name;
     int c;
 
     init_diag("to-syslog");
-    relays = def_relays;
+    to_log = def_to_log;
     name = NULL;
     log_it = just_log;
 
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
             break;
 
         case 'f':
-            relays = parse_fd_specs(optarg);
+            to_log = parse_fd_specs(optarg);
             break;
 
         case 'n':
@@ -426,7 +426,7 @@ int main(int argc, char **argv)
             usage();
         }
 
-    if (!relays) {
+    if (!to_log) {
         err("%s: no file descriptors specified", __func__);
         exit(1);
     }
@@ -434,7 +434,7 @@ int main(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
 
-    create_pipes(relays);
+    create_pipes(to_log);
     switch (fork()) {
     case -1:
         die("fork");
@@ -444,11 +444,11 @@ int main(int argc, char **argv)
         if (!name) name = *argv;
         openlog(name, LOG_PID, LOG_USER);
 
-        run_relayers(relays);
+        run_loggers(to_log);
         break;
 
     default:
-        run_cmd(relays, argv);
+        run_cmd(to_log, argv);
     }
 
     return 0;
