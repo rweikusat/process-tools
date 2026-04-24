@@ -43,4 +43,10 @@ process to the supplementary groups of I<user>.
 
 =back
 
-=head1 EXAMPLE
+=head1 EXAMPLES
+
+ [root@ftvaux]~#chids -u nobody -g postgres -s video:adm id
+ uid=65534(nobody) gid=127(postgres) groups=127(postgres),4(adm),44(video)
+
+ [root@ftvaux]~#chids -u postgres id
+ uid=114(postgres) gid=127(postgres) groups=127(postgres),115(ssl-cert)
