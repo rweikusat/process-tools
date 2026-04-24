@@ -11,6 +11,11 @@ ch-dir - change current working directory and execute a command
 Change the current working directory to C<directory> and execute the
 command C<cmd>.
 
+=head1 EXAMPLE
+
+ [rw@ftvaux]~/work/process-tools#ch-dir / pwd
+ /
+
 =head1 NOTES
 
 The I<ash> shell has an undocumented builtin called C<chdir> that's
