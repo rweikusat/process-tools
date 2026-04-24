@@ -8,9 +8,10 @@ sane-env - run a command witn a santized environment
 
 =head1 DESCRIPTION
 
-Run a command with a minimal set of standard environment variables
-set. Explicit additions to the newly created environment can override
-the default values of standard environment variables.
+Run a command with a minimal set of standard environment variables set
+(see L</"ENVIRONMENT VARIABLES">). Explicit additions to the newly
+created environment can override the default values of standard
+environment variables.
 
 =head1 OPTIONS
 
