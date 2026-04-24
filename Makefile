@@ -44,7 +44,8 @@ HY_PRGS := \
 	ch-dir \
 	have-locks \
 	monitor-ctrl \
-	sane-env
+	sane-env \
+	u-talk
 
 PRGS := $(addprefix bin/, $(PLAIN_PRGS) $(HY_PRGS))
 
