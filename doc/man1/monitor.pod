@@ -19,7 +19,7 @@ client connecting to this socket can query the status of the
 supervised process and can request that it's restarted, terminated or
 that a certain signal is sent to it. The supervisor process can also
 be asked to re-exec itself while maintaining the command state to
-enable it to be updated without disruptiing the running command.
+enable it to be updated without disrupting the running command.
 
 When the supervisor needs to terminate the command because of a
 termination or restart request, it'll first send a 'soft' termination
