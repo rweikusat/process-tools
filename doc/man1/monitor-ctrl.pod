@@ -78,3 +78,7 @@ Directory control sockets are supposed to reside in.
 Default control socket directory.
 
 =back
+
+=head1 SEE ALSO
+
+L<monitor(1)>
