@@ -65,7 +65,7 @@ and 1 otherwise.
 
 =item B<MONITOR_CONTROL_PATH>
 
-Directoty control sockets are supposed to reside in.
+Directory control sockets are supposed to reside in.
 
 =back
 
