@@ -51,3 +51,11 @@ Set to C</usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin>.
 Same as B<LOGNAME>.
 
 =back
+
+=head1 EXAMPLE
+
+ [root@ftvaux]~#chids -u postgres sane-env env
+ HOME=/var/lib/postgresql
+ LOGNAME=postgres
+ USER=postgres
+ PATH=/usr/local/sbin:/sbin:/usr/sbin:/usr/local/bin:/bin:/usr/bin
