@@ -11,18 +11,15 @@
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: u-talk [-b <bufsize>] [-g <group>] [-p] <socket>");
+    msg("Usage: u-talk [-b <bufsize>] [-p] <socket>");
     msg("    Communicate using AF_UNIX stream sockets.");
     msg("    Connect to the socket specified by <socket> and relay data");
     msg("    back and forth. If <socket> starts with '//', it refers to a ");
     msg("    socket in the Linux abstract namespace for AF_UNIX sockets.");
     msg("    The -p option can be used to demand a passive open, that is");
-    msg("    creation of a server socket instead. Any number of clients");
-    msg("    are supported. Unless -g is also provided, the socket will be");
-    msg("    created with 0600 access permissions.");
-    msg("    When creating a server socket in the filesystem namespace, ");
-    msg("    the -g option can be used to specify a particular group for ");
-    msg("    it. In this case, the permissions will be 0660.");
+    msg("    creation of a server socket instead. This is intended for ");
+    msg("    testing and only one client connect is supported. The socket");
+    msg("    will be created with 0600 access permissions.");
     msg("    The -b option can be used to use a different I/O buffer size");
     msg("    than the default of 4096.");
 
@@ -33,10 +30,9 @@ static void init(int argc, char **argv)
 {
     int c;
 
-    while (c = getopt(argc, argv, "+b:g:p"), c != -1)
+    while (c = getopt(argc, argv, "+b:p"), c != -1)
         switch (c) {
         case 'b':
-        case 'g':
         case 'p':
             break;
 
