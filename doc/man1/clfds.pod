@@ -8,7 +8,10 @@ clds - close open file descriptors and execute a command
 
 =head1 DESCRIPTION
 
-Closes all open file descriptors except 0, 1 and 2 and execute C<cmd>.
+Close open file descriptors and execute C<cmd>. By default, only the
+standard I/O file descriptors 0, 1 and 2 are left open. The -k option
+(for I<keep>) can be used to prevent other open file descriptors from
+being closed.
 
 =head1 OPTIONS
 
