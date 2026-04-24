@@ -1,6 +1,6 @@
 =head1 NAME
 
-sane-env - run a command witn a santized environment
+sane-env - run a command witn a sanitized environment
 
 =head1 SYNOPSIS
 
