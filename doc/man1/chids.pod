@@ -1,6 +1,6 @@
 =head1 NAME
 
-chids - execute a command with different uid, gid and supplementary groups list
+chids - execute a command with gid or supplementary groups list or uid
 
 =head1 SYNOPSIS
 
@@ -42,3 +42,5 @@ If B<-s> wasn't also provided, set the supplementary group list of the
 process to the supplementary groups of I<user>.
 
 =back
+
+=head1 EXAMPLE
