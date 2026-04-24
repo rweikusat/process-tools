@@ -35,7 +35,7 @@ doesn't, the supervisor will then kill it via I<SIGKILL>.
 
 Set the group of the control socket. The argument can either be a name
 in the system group database or a numeric group id. If provided, the
-control socket will be created group-writable
+control socket will be created group-writable.
 
 =item B<-n I<name>>
 
