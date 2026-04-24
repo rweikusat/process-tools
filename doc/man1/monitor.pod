@@ -83,3 +83,7 @@ will create this directoy with mode 0711 if it doesn't exist already.
 Default control socket directory.
 
 =back
+
+=head1 SEE ALSO
+
+L<monitor-ctrl(1)>
