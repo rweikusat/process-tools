@@ -104,6 +104,9 @@ clean:
 $(addprefix bin/, $(PLAIN_PRGS)) : bin/% : tmp/%.o
 $(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 
+bin/syslogging: LIBS=-lpthread
+bin/u-talk: LIBS=-lpthread
+
 include $(DEPS)
 
 #*  %-rules
@@ -115,7 +118,7 @@ tmp/%.o: src/%.c tmp/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 bin/%: tmp/diag.o
-	$(LD) -o $@ $^
+	$(LD) -o $@ $^ $(LIBS)
 
 doc/man1/%.1: doc/man1/%.pod debian/changelog
 	pod2man -c 'User Commands' -r "$(call man-ver)" $< >$@
