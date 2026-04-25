@@ -5,6 +5,7 @@
 
 /*  includes */
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -18,6 +19,11 @@ enum {
 struct buf {
     struct buf *p;
     char *e;
+};
+
+struct io {
+    int from, to;
+    struct buf *q, **q_chain;
 };
 
 /*  variables */
@@ -64,12 +70,27 @@ static void return_buf(struct buf *buf)
     buffers = buf;
 }
 
-/*  main */
-int main(int argc, char **argv)
+static void parse_fd_pair(char *s, int *from, int *to)
+{
+    char *p;
+
+    p = strchr(s, ',');
+    if (!p) {
+        err("%s: invalid fd pair: %s",
+            __func__, s);
+        exit(1);
+    }
+
+    *p = 0;
+    *from = atoi(s);
+    *to = atoi(p + 1);
+    *p = ',';
+}
+
+static void process_args(int argc, char **argv, struct io *ios)
 {
     int c;
 
-    init_diag("relay");
     while (c = getopt(argc, argv, "+b:"), c != -1)
         switch (c) {
         case 'b':
@@ -91,5 +112,23 @@ int main(int argc, char **argv)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
+    parse_fd_pair(*argv, &ios[0].from, &ios[1].to);
+    parse_fd_pair(argv[1], &ios[1].from, &ios[0].to);
+
+    ios[0].q = NULL;
+    ios[0].q_chain = &ios[0].q;
+
+    ios[1].q = NULL;
+    ios[1].q_chain = &ios[1].q;
+}
+
+
+/*  main */
+int main(int argc, char **argv)
+{
+    struct io ios[2];
+
+    init_diag("relay");
+    process_args(argc, argv, ios);
     return 0;
 }
