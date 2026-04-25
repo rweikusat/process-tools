@@ -3,14 +3,17 @@
 */
 
 /*  includes */
+#include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "diag.h"
 
 /*  constants */
 enum {
-    BUFSZ =	4096
+    DEF_BUFSZ =	4096
 };
 
 /*  types */
@@ -46,7 +49,6 @@ static void fill_sun(char *addr,
     char *a_dst;
 
     sun->sun_family = AF_UNIX;
-    s_len =
     a_len = strlen(addr);
     a_dst = sun->sun_path;
 
@@ -80,7 +82,7 @@ static void create_socket(char *addr, struct my_sk *my_sk)
     fill_sun(addr, &sun, &sun_len);
 
     if (my_sk->passive) {
-        listen_on(my_sk->sk, &sun);
+//        listen_on(my_sk->sk, &sun);
         return;
     }
 
