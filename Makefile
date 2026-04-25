@@ -36,6 +36,7 @@ PLAIN_PRGS := \
 	lock \
 	monitor \
 	pause \
+	relay \
 	syslogging
 
 # hyphen programs, depend on .o file with - translated to _
