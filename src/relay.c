@@ -14,8 +14,15 @@ enum {
     DEF_BUF_SZ =	4096
 };
 
+/*  types */
+struct buf {
+    struct buf *p;
+    char *e;
+};
+
 /*  variables */
-static size_t buf_sz = DEF_BUF_SZ;
+static size_t buf_sz = DEF_BUF_SZ, buf_data_sz;
+static struct buf *buffers;
 
 /*  routines */
 static void usage(void)
@@ -29,6 +36,34 @@ static void usage(void)
     exit(0);
 }
 
+static inline char *buf_data(struct buf *buf)
+{
+    return (char *)(buf + 1);
+}
+
+static struct buf *get_buf(void)
+{
+    struct buf *buf;
+
+    buf = buffers;
+    if (buf) buffers = buf->p;
+    else {
+        buf = malloc(buf_sz);
+        if (!buf) die("malloc");
+    }
+
+    buf->p = NULL;
+    buf->e = buf_data(buf);
+
+    return buf;
+}
+
+static void return_buf(struct buf *buf)
+{
+    buf->p = buffers;
+    buffers = buf;
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -39,6 +74,13 @@ int main(int argc, char **argv)
         switch (c) {
         case 'b':
             buf_sz = atoi(optarg);
+            if (buf_sz <= sizeof(struct buf)) {
+                err("%s: buffer size must be larger than %zu",
+                    __func__, sizeof(struct buf));
+                exit(1);
+            }
+
+            buf_data_sz = buf_sz - sizeof(struct buf);
             break;
 
         default:
