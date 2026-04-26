@@ -170,7 +170,7 @@ static int setup_epoll(struct io *ios)
     if (rc == -1) die("epoll_ctl/ 1");
 }
 
-static void do_ctl(in ep_fd, int fd, void *p, unsigned ev)
+static void ctl_mod(in ep_fd, int fd, void *p, unsigned ev)
 {
     struct epoll_event epev;
     int rc;
@@ -191,7 +191,7 @@ static void handle_from(int ep_fd, struct io *io)
         if (buf) {
             io->in_buf = buf;
             io->state = WANT_INPUT;
-            do_ctl(ep_fd, io->from, ios, EPOLLIN);
+            ctl_mod(ep_fd, io->from, ios, EPOLLIN);
         }
 
         break;
@@ -203,9 +203,33 @@ static void handle_from(int ep_fd, struct io *io)
         if (buf) io->in_buf = buf;
         else {
             io->state = WANT_BUF;
-            do_ctl(ep_fd, io->from, ios, 0);
+            ctl_mod(ep_fd, io->from, ios, 0);
         }
     }
+}
+
+static void handle_out(int ep_fd, struct io *io)
+{
+    struct buf *buf;
+    ssize_t nw;
+
+    buf = io->q;
+    do {
+        do {
+            nw = write(io->to, buf->s, buf->e - buf->s);
+            if (nw > 0) buf->s += nw;
+        } while (nw != -1 && buf->s < buf->e);
+        if (nw == -1) {
+            if (errno == EAGAIN) return;
+            die("write");
+        }
+
+        buf = buf->p;
+    } while (buf);
+
+    io->q = NULL;
+    io->q_chain = &io->q;
+    ctl_mod(ep_fd, io->to, io, 0);
 }
 
 static void relay_data(int ep_fd, struct io *ios)
@@ -223,9 +247,9 @@ static void relay_data(int ep_fd, struct io *ios)
 
         while (rc--) {
             if (epevs[rc].events & EPOLLOUT)
-                handle_out(epevs[rc].data.ptr);
+                handle_out(ep_fd, epevs[rc].data.ptr);
             else
-                handle_in(epevs[rc].data.ptr);
+                handle_in(ep_fd, epevs[rc].data.ptr);
         }
     } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
 }
