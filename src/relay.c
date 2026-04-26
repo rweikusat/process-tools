@@ -12,22 +12,31 @@
 
 /*  constants */
 enum {
-    DEF_BUF_SZ =	4096
+    DEF_BUF_SZ =	4096,
+    DEF_MAX_BUFS =	16
+};
+
+enum {
+    WANT_BUF,
+    WANT_INPUT,
+    IN_EOF,
+    CLOSED
 };
 
 /*  types */
 struct buf {
     struct buf *p;
-    char *e;
+    char *s, *e;
 };
 
 struct io {
-    int from, to;
+    int from, to, state;
+    struct buf *in_buf;
     struct buf *q, **q_chain;
 };
 
 /*  variables */
-static size_t buf_sz = DEF_BUF_SZ, buf_data_sz;
+static size_t buf_sz = DEF_BUF_SZ, buf_data_sz, bufs_remain = DEF_MAX_BUFS;
 static struct buf *buffers;
 
 /*  routines */
@@ -42,9 +51,9 @@ static void usage(void)
     exit(0);
 }
 
-static inline char *buf_data(struct buf *buf)
+static inline void reset_buf(struct buf *buf)
 {
-    return (char *)(buf + 1);
+    buf->s = buf->e = (char *)(buf + 1);
 }
 
 static struct buf *get_buf(void)
@@ -54,12 +63,15 @@ static struct buf *get_buf(void)
     buf = buffers;
     if (buf) buffers = buf->p;
     else {
+        if (!bufs_remain) return NULL;
+
         buf = malloc(buf_sz);
         if (!buf) die("malloc");
+        --bufs_remain;
     }
 
     buf->p = NULL;
-    buf->e = buf_data(buf);
+    reset_buf(buf);
 
     return buf;
 }
@@ -114,21 +126,55 @@ static void process_args(int argc, char **argv, struct io *ios)
 
     parse_fd_pair(*argv, &ios[0].from, &ios[1].to);
     parse_fd_pair(argv[1], &ios[1].from, &ios[0].to);
-
-    ios[0].q = NULL;
-    ios[0].q_chain = &ios[0].q;
-
-    ios[1].q = NULL;
-    ios[1].q_chain = &ios[1].q;
 }
 
+static void init_io(struct io *io)
+{
+    io->state = WANT_BUF;
+    io->in_buf = NULL;
+    io->q = NULL;
+    ios->q_chain = &io->q;
+
+    fcntl(io->from, F_SETFL, fcntl(io->from, F_GETFL) | O_NONBLOCK);
+    fcntl(io->to, F_SETFL, fcntl(io->to, F_GETFL) | O_NONBLOCK);
+}
+
+static void init(int argc, char **argv, struct io *ios)
+{
+    process_args(argc, argv, ios);
+
+    init_io(ios);
+    init_io(ios + 1);
+}
+
+static int setup_epoll(struct io *ios)
+{
+    struct epoll_event epev;
+    int ep_fd, rc;
+
+    ep_fd = epoll_create(4);
+    if (ep_fd ==- -1) die("epoll_create");
+
+    epev.events = 0;
+
+    epev.data.ptr = ios;
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+
+    epev.data.ptr = ++ios;
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+}
 
 /*  main */
 int main(int argc, char **argv)
 {
     struct io ios[2];
+    int ep_fd;
 
     init_diag("relay");
     process_args(argc, argv, ios);
+    ep_fd = setup_epoll(ios);
+
     return 0;
 }
