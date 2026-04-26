@@ -4,8 +4,10 @@
 */
 
 /*  includes */
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -133,7 +135,7 @@ static void init_io(struct io *io)
     io->state = WANT_BUF;
     io->in_buf = NULL;
     io->q = NULL;
-    ios->q_chain = &io->q;
+    io->q_chain = &io->q;
 
     fcntl(io->from, F_SETFL, fcntl(io->from, F_GETFL) | O_NONBLOCK);
     fcntl(io->to, F_SETFL, fcntl(io->to, F_GETFL) | O_NONBLOCK);
@@ -159,11 +161,13 @@ static int setup_epoll(struct io *ios)
 
     epev.data.ptr = ios;
     rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc == -1) die("epoll_ctl/ 0");
 
     epev.data.ptr = ++ios;
     rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc == -1) die("epoll_ctl/ 1");
 }
 
 /*  main */
@@ -173,7 +177,7 @@ int main(int argc, char **argv)
     int ep_fd;
 
     init_diag("relay");
-    process_args(argc, argv, ios);
+    init(argc, argv, ios);
     ep_fd = setup_epoll(ios);
 
     return 0;
