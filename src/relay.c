@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -168,9 +169,11 @@ static int setup_epoll(struct io *ios)
     rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
     if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
     if (rc == -1) die("epoll_ctl/ 1");
+
+    return ep_fd;
 }
 
-static void ctl_mod(in ep_fd, int fd, void *p, unsigned ev)
+static void ctl_mod(int ep_fd, int fd, void *p, unsigned ev)
 {
     struct epoll_event epev;
     int rc;
@@ -178,6 +181,15 @@ static void ctl_mod(in ep_fd, int fd, void *p, unsigned ev)
     epev.events = ev;
     epev.data.ptr = p;
     rc = epoll_ctl(ep_fd, EPOLL_CTL_MOD, fd, &epev);
+    if (rc == -1) die("epoll_ctl");
+}
+
+static void ctl_del(int ep_fd, int fd)
+{
+    struct epoll_event dummy;
+    int rc;
+
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_DEL, fd, &dummy);
     if (rc == -1) die("epoll_ctl");
 }
 
@@ -191,21 +203,30 @@ static void handle_from(int ep_fd, struct io *io)
         if (buf) {
             io->in_buf = buf;
             io->state = WANT_INPUT;
-            ctl_mod(ep_fd, io->from, ios, EPOLLIN);
+            ctl_mod(ep_fd, io->from, io, EPOLLIN);
         }
 
         break;
 
-    case WANT_DATA:
+    case WANT_INPUT:
         if (io->in_buf) break;
 
         buf = get_buf();
         if (buf) io->in_buf = buf;
         else {
             io->state = WANT_BUF;
-            ctl_mod(ep_fd, io->from, ios, 0);
+            ctl_mod(ep_fd, io->from, io, 0);
         }
     }
+}
+
+static void close_to(int ep_fd, struct io *io)
+{
+    ctl_del(ep_fd, io->to);
+    shutdown(io->to, SHUT_WR);
+    close(io->to);
+
+    io->state = CLOSED;
 }
 
 static void handle_out(int ep_fd, struct io *io)
@@ -213,29 +234,83 @@ static void handle_out(int ep_fd, struct io *io)
     struct buf *buf;
     ssize_t nw;
 
-    buf = io->q;
-    do {
-        do {
+    while (buf = io->q, buf) {
+        do
             nw = write(io->to, buf->s, buf->e - buf->s);
-            if (nw > 0) buf->s += nw;
-        } while (nw != -1 && buf->s < buf->e);
+        while (nw != -1 && (buf->s += nw, buf->s < buf->e));
         if (nw == -1) {
             if (errno == EAGAIN) return;
             die("write");
         }
 
-        buf = buf->p;
-    } while (buf);
+        io->q = buf->p;
+        return_buf(buf);
+    }
 
     io->q = NULL;
     io->q_chain = &io->q;
+
+    if (io->state == IN_EOF) {
+        close_to(ep_fd, io);
+        return;
+    }
+
     ctl_mod(ep_fd, io->to, io, 0);
+}
+
+static void handle_in(int ep_fd, struct io *io)
+{
+    struct buf *buf;
+    ssize_t n;
+
+    buf = io->in_buf;
+    n = read(io->from, buf->s, buf_data_sz);
+    switch (n) {
+    case -1:
+        if (errno == EAGAIN) return;
+        die("read");
+
+    case 0:
+        ctl_del(ep_fd, io->from);
+        close(io->from);
+
+        if (io->q) io->state = IN_EOF;
+        else close_to(ep_fd, io);
+        return;
+    }
+
+    buf->e = buf->s + n;
+
+    if (io->q) {
+        buf->p = NULL;
+
+        *io->q_chain = buf;
+        io->q_chain = &buf->p;
+        io->in_buf = NULL;
+        return;
+    }
+
+    do
+        n = write(io->to, buf->s, buf->e - buf->s);
+    while (n != -1 && (buf->s += n, buf->s < buf->e));
+    if (n == -1) {
+        if (errno != EAGAIN) die("write");
+
+        buf->p = NULL;
+
+        io->q = buf;
+        io->q_chain = &buf->p;
+        io->in_buf = NULL;
+        ctl_mod(ep_fd, io->to, io, EPOLLOUT);
+        return;
+    }
+
+    reset_buf(buf);
 }
 
 static void relay_data(int ep_fd, struct io *ios)
 {
-    struct buf *buf;
-    struct epoll_even epevs[4];
+    struct epoll_event epevs[4];
     int rc;
 
     do {
