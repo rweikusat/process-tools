@@ -44,6 +44,7 @@ static struct buf *buffers;
 static void (*noise)(char *, ...) = msg;
 
 /*  routines */
+/**  misc */
 static void usage(void)
 {
     msg("Usage: relay [-q] [-b <bufsize>] <fdr0>,<fdw0> <fdr1>,<fdw1>");
@@ -62,6 +63,7 @@ static void nop(char *unused, ...)
     (void)unused;
 }
 
+/**  buffer management */
 static inline void reset_buf(struct buf *buf)
 {
     buf->s = buf->e = (char *)(buf + 1);
@@ -93,98 +95,7 @@ static void return_buf(struct buf *buf)
     buffers = buf;
 }
 
-static void parse_fd_pair(char *s, int *from, int *to)
-{
-    char *p;
-
-    p = strchr(s, ',');
-    if (!p) {
-        err("%s: invalid fd pair: %s",
-            __func__, s);
-        exit(1);
-    }
-
-    *p = 0;
-    *from = atoi(s);
-    *to = atoi(p + 1);
-    *p = ',';
-}
-
-static void process_args(int argc, char **argv, struct io *ios)
-{
-    int c;
-
-    while (c = getopt(argc, argv, "+b:q"), c != -1)
-        switch (c) {
-        case 'b':
-            buf_sz = atoi(optarg);
-            if (buf_sz <= sizeof(struct buf)) {
-                err("%s: buffer size must be larger than %zu",
-                    __func__, sizeof(struct buf));
-                exit(1);
-            }
-
-            buf_data_sz = buf_sz - sizeof(struct buf);
-            break;
-
-        case 'q':
-            noise = nop;
-            break;
-
-        default:
-            usage();
-        }
-
-    argv += optind;
-    if (!*argv || !argv[1] || argv[2])
-        usage();
-
-    parse_fd_pair(*argv, &ios[0].from, &ios[1].to);
-    parse_fd_pair(argv[1], &ios[1].from, &ios[0].to);
-}
-
-static void init_io(struct io *io)
-{
-    io->state = WANT_BUF;
-    io->in_buf = NULL;
-    io->q = NULL;
-    io->q_chain = &io->q;
-
-    fcntl(io->from, F_SETFL, fcntl(io->from, F_GETFL) | O_NONBLOCK);
-    fcntl(io->to, F_SETFL, fcntl(io->to, F_GETFL) | O_NONBLOCK);
-}
-
-static void init(int argc, char **argv, struct io *ios)
-{
-    process_args(argc, argv, ios);
-
-    init_io(ios);
-    init_io(ios + 1);
-}
-
-static int setup_epoll(struct io *ios)
-{
-    struct epoll_event epev;
-    int ep_fd, rc;
-
-    ep_fd = epoll_create(4);
-    if (ep_fd ==- -1) die("epoll_create");
-
-    epev.events = 0;
-
-    epev.data.ptr = ios;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
-    if (rc == -1) die("epoll_ctl/ 0");
-
-    epev.data.ptr = ++ios;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
-    if (rc == -1) die("epoll_ctl/ 1");
-
-    return ep_fd;
-}
-
+/**  relaying */
 static void ctl_mod(int ep_fd, int fd, void *p, unsigned ev)
 {
     struct epoll_event epev;
@@ -352,6 +263,99 @@ static void relay_data(int ep_fd, struct io *ios)
             else
                 handle_in(ep_fd, epevs[rc].data.ptr);
     } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
+}
+
+/**  init code */
+static void parse_fd_pair(char *s, int *from, int *to)
+{
+    char *p;
+
+    p = strchr(s, ',');
+    if (!p) {
+        err("%s: invalid fd pair: %s",
+            __func__, s);
+        exit(1);
+    }
+
+    *p = 0;
+    *from = atoi(s);
+    *to = atoi(p + 1);
+    *p = ',';
+}
+
+static void process_args(int argc, char **argv, struct io *ios)
+{
+    int c;
+
+    while (c = getopt(argc, argv, "+b:q"), c != -1)
+        switch (c) {
+        case 'b':
+            buf_sz = atoi(optarg);
+            if (buf_sz <= sizeof(struct buf)) {
+                err("%s: buffer size must be larger than %zu",
+                    __func__, sizeof(struct buf));
+                exit(1);
+            }
+
+            buf_data_sz = buf_sz - sizeof(struct buf);
+            break;
+
+        case 'q':
+            noise = nop;
+            break;
+
+        default:
+            usage();
+        }
+
+    argv += optind;
+    if (!*argv || !argv[1] || argv[2])
+        usage();
+
+    parse_fd_pair(*argv, &ios[0].from, &ios[1].to);
+    parse_fd_pair(argv[1], &ios[1].from, &ios[0].to);
+}
+
+static void init_io(struct io *io)
+{
+    io->state = WANT_BUF;
+    io->in_buf = NULL;
+    io->q = NULL;
+    io->q_chain = &io->q;
+
+    fcntl(io->from, F_SETFL, fcntl(io->from, F_GETFL) | O_NONBLOCK);
+    fcntl(io->to, F_SETFL, fcntl(io->to, F_GETFL) | O_NONBLOCK);
+}
+
+static void init(int argc, char **argv, struct io *ios)
+{
+    process_args(argc, argv, ios);
+
+    init_io(ios);
+    init_io(ios + 1);
+}
+
+static int setup_epoll(struct io *ios)
+{
+    struct epoll_event epev;
+    int ep_fd, rc;
+
+    ep_fd = epoll_create(4);
+    if (ep_fd ==- -1) die("epoll_create");
+
+    epev.events = 0;
+
+    epev.data.ptr = ios;
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
+    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc == -1) die("epoll_ctl/ 0");
+
+    epev.data.ptr = ++ios;
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
+    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
+    if (rc == -1) die("epoll_ctl/ 1");
+
+    return ep_fd;
 }
 
 /*  main */
