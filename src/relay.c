@@ -320,12 +320,11 @@ static void relay_data(int ep_fd, struct io *ios)
         rc = epoll_wait(ep_fd, epevs, 4, -1);
         if (rc == -1) die("epoll_wait");
 
-        while (rc--) {
+        while (rc--)
             if (epevs[rc].events & EPOLLOUT)
                 handle_out(ep_fd, epevs[rc].data.ptr);
             else
                 handle_in(ep_fd, epevs[rc].data.ptr);
-        }
     } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
 }
 
