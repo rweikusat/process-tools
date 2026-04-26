@@ -257,7 +257,8 @@ static void handle_out(int ep_fd, struct io *io)
             if (nw > -1) {
                 buf->s += nw;
                 noise("%s: wrote %zd to %d", __func__, nw, io->to);
-        } while (nw != -1 && buf->s < buf->e));
+            }
+        } while (nw != -1 && buf->s < buf->e);
         if (nw == -1) {
             if (errno == EAGAIN) return;
             die("write");
@@ -317,7 +318,7 @@ static void handle_in(int ep_fd, struct io *io)
             buf->s += n;
             noise("%s: wrote %zd to %d", __func__, io->to);
         }
-    while (n != -1 && buf->s < buf->e);
+    } while (n != -1 && buf->s < buf->e);
     if (n == -1) {
         if (errno != EAGAIN) die("write");
 
