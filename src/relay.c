@@ -170,6 +170,17 @@ static int setup_epoll(struct io *ios)
     if (rc == -1) die("epoll_ctl/ 1");
 }
 
+static void do_ctl(in ep_fd, int fd, void *p, unsigned ev)
+{
+    struct epoll_event epev;
+    int rc;
+
+    epev.events = ev;
+    epev.data.ptr = p;
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_MOD, fd, &epev);
+    if (rc == -1) die("epoll_ctl");
+}
+
 static void handle_from(int ep_fd, struct io *io)
 {
     struct buf *buf;
