@@ -41,17 +41,25 @@ struct io {
 /*  variables */
 static size_t buf_sz = DEF_BUF_SZ, buf_data_sz, bufs_remain = DEF_MAX_BUFS;
 static struct buf *buffers;
+static void (*noise)(char *, ...) = msg;
 
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: relay [-b <bufsize>] <fdr0>,<fdw0> <fdr1>,<fdw1>");
+    msg("Usage: relay [-q] [-b <bufsize>] <fdr0>,<fdw0> <fdr1>,<fdw1>");
     msg("   Relay data between two pairs of file descriptors. Data read from");
     msg("   <fdr0> will be written to <fdw1>, data read from <fdr1> to <fdw0>");
     msg("   The -b option can be used to specifiy an non-default input buffer");
     msg("   size. Default is 4096 bytes.");
+    msg("   The -q option can be used to disabled printing of informative");
+    msg("   messages.");
 
     exit(0);
+}
+
+static void nop(char *unused, ...)
+{
+    (void)unused;
 }
 
 static inline void reset_buf(struct buf *buf)
@@ -106,7 +114,7 @@ static void process_args(int argc, char **argv, struct io *ios)
 {
     int c;
 
-    while (c = getopt(argc, argv, "+b:"), c != -1)
+    while (c = getopt(argc, argv, "+b:q"), c != -1)
         switch (c) {
         case 'b':
             buf_sz = atoi(optarg);
@@ -117,6 +125,10 @@ static void process_args(int argc, char **argv, struct io *ios)
             }
 
             buf_data_sz = buf_sz - sizeof(struct buf);
+            break;
+
+        case 'q':
+            noise = nop;
             break;
 
         default:
@@ -182,6 +194,8 @@ static void ctl_mod(int ep_fd, int fd, void *p, unsigned ev)
     epev.data.ptr = p;
     rc = epoll_ctl(ep_fd, EPOLL_CTL_MOD, fd, &epev);
     if (rc == -1) die("epoll_ctl");
+
+    noise("%s: changed %d to %u", __func__, fd, ev);
 }
 
 static void ctl_del(int ep_fd, int fd)
@@ -191,6 +205,8 @@ static void ctl_del(int ep_fd, int fd)
 
     rc = epoll_ctl(ep_fd, EPOLL_CTL_DEL, fd, &dummy);
     if (rc == -1) die("epoll_ctl");
+
+    noise("%s: deleted %d", __func__, fd);
 }
 
 static void handle_from(int ep_fd, struct io *io)
@@ -227,6 +243,7 @@ static void close_to(int ep_fd, struct io *io)
     close(io->to);
 
     io->state = CLOSED;
+    noise("%s: closed %d", __func__, io->to);
 }
 
 static void handle_out(int ep_fd, struct io *io)
@@ -235,9 +252,12 @@ static void handle_out(int ep_fd, struct io *io)
     ssize_t nw;
 
     while (buf = io->q, buf) {
-        do
+        do {
             nw = write(io->to, buf->s, buf->e - buf->s);
-        while (nw != -1 && (buf->s += nw, buf->s < buf->e));
+            if (nw > -1) {
+                buf->s += nw;
+                noise("%s: wrote %zd to %d", __func__, nw, io->to);
+        } while (nw != -1 && buf->s < buf->e));
         if (nw == -1) {
             if (errno == EAGAIN) return;
             die("write");
@@ -280,6 +300,7 @@ static void handle_in(int ep_fd, struct io *io)
     }
 
     buf->e = buf->s + n;
+    noise("%s: read %zd from %d", __func__, n, io->from);
 
     if (io->q) {
         buf->p = NULL;
@@ -290,9 +311,13 @@ static void handle_in(int ep_fd, struct io *io)
         return;
     }
 
-    do
+    do {
         n = write(io->to, buf->s, buf->e - buf->s);
-    while (n != -1 && (buf->s += n, buf->s < buf->e));
+        if (n > -1) {
+            buf->s += n;
+            noise("%s: wrote %zd to %d", __func__, io->to);
+        }
+    while (n != -1 && buf->s < buf->e);
     if (n == -1) {
         if (errno != EAGAIN) die("write");
 
