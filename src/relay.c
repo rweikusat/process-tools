@@ -170,6 +170,55 @@ static int setup_epoll(struct io *ios)
     if (rc == -1) die("epoll_ctl/ 1");
 }
 
+static void handle_from(int ep_fd, struct io *io)
+{
+    struct buf *buf;
+
+    switch (io->state) {
+    case WANT_BUF:
+        buf = get_buf();
+        if (buf) {
+            io->in_buf = buf;
+            io->state = WANT_INPUT;
+            do_ctl(ep_fd, io->from, ios, EPOLLIN);
+        }
+
+        break;
+
+    case WANT_DATA:
+        if (io->in_buf) break;
+
+        buf = get_buf();
+        if (buf) io->in_buf = buf;
+        else {
+            io->state = WANT_BUF;
+            do_ctl(ep_fd, io->from, ios, 0);
+        }
+    }
+}
+
+static void relay_data(int ep_fd, struct io *ios)
+{
+    struct buf *buf;
+    struct epoll_even epevs[4];
+    int rc;
+
+    do {
+        handle_from(ep_fd, ios);
+        handle_from(ep_fd, ios + 1);
+
+        rc = epoll_wait(ep_fd, epevs, 4, -1);
+        if (rc == -1) die("epoll_wait");
+
+        while (rc--) {
+            if (epevs[rc].events & EPOLLOUT)
+                handle_out(epevs[rc].data.ptr);
+            else
+                handle_in(epevs[rc].data.ptr);
+        }
+    } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
@@ -179,6 +228,7 @@ int main(int argc, char **argv)
     init_diag("relay");
     init(argc, argv, ios);
     ep_fd = setup_epoll(ios);
+    relay_data(ep_fd, ios);
 
     return 0;
 }
