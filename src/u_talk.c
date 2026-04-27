@@ -73,7 +73,7 @@ static void create_socket(char *addr, struct my_sk *my_sk)
 {
     struct sockaddr_un sun;
     unsigned sun_len;
-    int rc;
+    int rc, omask;
 
     rc = socket(AF_UNIX, SOCK_STREAM, 0);
     if (rc == -1) die("socket");
@@ -82,11 +82,22 @@ static void create_socket(char *addr, struct my_sk *my_sk)
     fill_sun(addr, &sun, &sun_len);
 
     if (my_sk->passive) {
-//        listen_on(my_sk->sk, &sun);
+        if (*sun.sun_path) {
+            unlink(sun.sun_path);
+            omask = umask(~0600);
+        }
+
+        rc = bind(my_sk->sk, (struct sockaddr *)&sun, sun_len);
+        if (rc == -1) die("bind");
+
+        if (*sun.sun_path) umask(omask);
+
+        rc = listen(my_sk->sk, 10);
+        if (rc == -1) die("listen");
+
         return;
     }
 
-    unlink(sun.sun_path);
     rc = connect(my_sk->sk, (struct sockaddr *)&sun, sun_len);
     if (rc == -1) die("connect");
 }
