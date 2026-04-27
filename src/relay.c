@@ -47,9 +47,12 @@ static void (*noise)(char *, ...) = msg;
 /**  misc */
 static void usage(void)
 {
-    msg("Usage: relay [-q] [-b <bufsize>] <fdr0>,<fdw0> <fdr1>,<fdw1>");
-    msg("   Relay data between two pairs of file descriptors. Data read from");
-    msg("   <fdr0> will be written to <fdw1>, data read from <fdr1> to <fdw0>");
+    msg("Usage: relay [-q] [-b <bufsize>] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
+    msg("   Relay data between two file descriptors or pairs of file descriptors.");
+    msg("   Data read from <fd0> will be written to <fd1> and vice versa. If an");
+    msg("   optional for-write file descriptor (<fdwN>) was specified as well,");
+    msg("   the first file descriptor of the pair will only be used for reading");
+    msg("   data.");
     msg("   The -b option can be used to specifiy an non-default input buffer");
     msg("   size. Default is 4096 bytes.");
     msg("   The -q option can be used to disabled printing of informative");
@@ -266,21 +269,23 @@ static void relay_data(int ep_fd, struct io *ios)
 }
 
 /**  init code */
-static void parse_fd_pair(char *s, int *from, int *to)
+static void parse_fd_arg(char *s, int *from, int *to)
 {
     char *p;
 
     p = strchr(s, ',');
-    if (!p) {
-        err("%s: invalid fd pair: %s",
-            __func__, s);
-        exit(1);
+    if (p) {
+        *p = 0;
+        *from = atoi(s);
+        *to = atoi(p + 1);
+        *p = ',';
+
+        return;
     }
 
-    *p = 0;
     *from = atoi(s);
-    *to = atoi(p + 1);
-    *p = ',';
+    *to = dup(*from);
+    if (*to == -1) die("dup");
 }
 
 static void process_args(int argc, char **argv, struct io *ios)
@@ -312,8 +317,8 @@ static void process_args(int argc, char **argv, struct io *ios)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
-    parse_fd_pair(*argv, &ios[0].from, &ios[1].to);
-    parse_fd_pair(argv[1], &ios[1].from, &ios[0].to);
+    parse_fd_arg(*argv, &ios[0].from, &ios[1].to);
+    parse_fd_arg(argv[1], &ios[1].from, &ios[0].to);
 }
 
 static void init_io(struct io *io)
