@@ -302,7 +302,6 @@ static void process_args(int argc, char **argv, struct io *ios)
                 exit(1);
             }
 
-            buf_data_sz = buf_sz - sizeof(struct buf);
             break;
 
         case 'q':
@@ -319,6 +318,7 @@ static void process_args(int argc, char **argv, struct io *ios)
 
     parse_fd_arg(*argv, &ios[0].from, &ios[1].to);
     parse_fd_arg(argv[1], &ios[1].from, &ios[0].to);
+    buf_data_sz = buf_sz - sizeof(struct buf);
 }
 
 static void init_io(struct io *io)
