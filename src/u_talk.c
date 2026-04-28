@@ -4,17 +4,18 @@
 
 /*  includes */
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "diag.h"
 
-/*  constants */
-enum {
-    DEF_BUFSZ =	4096
-};
+/*  macros */
+#define DEF_BUFSZ	"4096"
 
 /*  types */
 struct my_sk {
@@ -22,7 +23,7 @@ struct my_sk {
 };
 
 /*  routines */
-static unsigned buf_sz = DEF_BUFSZ;
+static char *buf_sz = DEF_BUFSZ;
 
 /*  routines */
 static void usage(void)
@@ -110,7 +111,7 @@ static void init(int argc, char **argv, struct my_sk *my_sk)
     while (c = getopt(argc, argv, "+b:p"), c != -1)
         switch (c) {
         case 'b':
-            buf_sz = atoi(optarg);
+            buf_sz = optarg;
             break;
 
         case 'p':
@@ -127,12 +128,41 @@ static void init(int argc, char **argv, struct my_sk *my_sk)
     create_socket(*argv, my_sk);
 }
 
+static void exec_relay(int sk)
+{
+    char sks[128];
+
+    sprintf(sks, "%d", sk);
+    execlp("relay", "relay", "0,1", sks, (void *)0);
+    die("execlp");
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
     struct my_sk my_sk;
+    int acc_sk;
 
     init_diag("u-talk");
     init(argc, argv, &my_sk);
+
+    if (my_sk.passive)
+        while (1) {
+            acc_sk = accept(my_sk.sk, NULL, NULL);
+            if (acc_sk == -1) die("accept");
+
+            switch (fork()) {
+            case -1:
+                die("fork");
+
+            case 0:
+                exec_relay(acc_sk);
+            }
+
+            close(acc_sk);
+            wait(NULL);
+        }
+
+    exec_relay(my_sk.sk);
     return 0;
 }
