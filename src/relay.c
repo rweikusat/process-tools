@@ -230,7 +230,7 @@ static void handle_in(int ep_fd, struct io *io)
         n = write(io->to, buf->s, buf->e - buf->s);
         if (n > -1) {
             buf->s += n;
-            noise("%s: wrote %zd to %d", __func__, io->to);
+            noise("%s: wrote %zd to %d", __func__, n, io->to);
         }
     } while (n != -1 && buf->s < buf->e);
     if (n == -1) {
