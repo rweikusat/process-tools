@@ -259,7 +259,7 @@ static void relay_data(int ep_fd, struct io *ios)
         while (rc--) {
             io = epevs[rc].data.ptr;
             noise("%s: %u for %d/%d",
-                  __func__, epevs[rc].events, io->to, io->from);
+                  __func__, epevs[rc].events, io->from, io->to);
 
             if (epevs[rc].events & EPOLLOUT) {
                 handle_out(ep_fd, io);
