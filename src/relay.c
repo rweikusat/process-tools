@@ -99,14 +99,14 @@ static void return_buf(struct buf *buf)
 }
 
 /**  relaying */
-static void ctl_mod(int ep_fd, int fd, void *p, unsigned ev)
+static void ctl_add(int ep_fd, int fd, void *p, unsigned ev)
 {
     struct epoll_event epev;
     int rc;
 
     epev.events = ev;
     epev.data.ptr = p;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_MOD, fd, &epev);
+    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, fd, &epev);
     if (rc == -1) die("epoll_ctl");
 
     noise("%s: changed %d to %u", __func__, fd, ev);
@@ -133,7 +133,7 @@ static void handle_from(int ep_fd, struct io *io)
         if (buf) {
             io->in_buf = buf;
             io->state = WANT_INPUT;
-            ctl_mod(ep_fd, io->from, io, EPOLLIN);
+            ctl_add(ep_fd, io->from, io, EPOLLIN);
         }
 
         break;
@@ -145,14 +145,13 @@ static void handle_from(int ep_fd, struct io *io)
         if (buf) io->in_buf = buf;
         else {
             io->state = WANT_BUF;
-            ctl_mod(ep_fd, io->from, io, 0);
+            ctl_del(ep_fd, io->from);
         }
     }
 }
 
-static void close_to(int ep_fd, struct io *io)
+static void close_to(struct io *io)
 {
-    ctl_del(ep_fd, io->to);
     shutdown(io->to, SHUT_WR);
     close(io->to);
 
@@ -185,12 +184,8 @@ static void handle_out(int ep_fd, struct io *io)
     io->q = NULL;
     io->q_chain = &io->q;
 
-    if (io->state == IN_EOF) {
-        close_to(ep_fd, io);
-        return;
-    }
-
-    ctl_mod(ep_fd, io->to, io, 0);
+    ctl_del(ep_fd, io->to);
+    if (io->state == IN_EOF) close_to(io);
 }
 
 static void handle_in(int ep_fd, struct io *io)
@@ -210,7 +205,7 @@ static void handle_in(int ep_fd, struct io *io)
         close(io->from);
 
         if (io->q) io->state = IN_EOF;
-        else close_to(ep_fd, io);
+        else close_to(io);
         return;
     }
 
@@ -241,7 +236,7 @@ static void handle_in(int ep_fd, struct io *io)
         io->q = buf;
         io->q_chain = &buf->p;
         io->in_buf = NULL;
-        ctl_mod(ep_fd, io->to, io, EPOLLOUT);
+        ctl_add(ep_fd, io->to, io, EPOLLOUT);
         return;
     }
 
@@ -251,6 +246,7 @@ static void handle_in(int ep_fd, struct io *io)
 static void relay_data(int ep_fd, struct io *ios)
 {
     struct epoll_event epevs[4];
+    struct io *io;
     int rc;
 
     do {
@@ -260,11 +256,19 @@ static void relay_data(int ep_fd, struct io *ios)
         rc = epoll_wait(ep_fd, epevs, 4, -1);
         if (rc == -1) die("epoll_wait");
 
-        while (rc--)
-            if (epevs[rc].events & EPOLLOUT)
-                handle_out(ep_fd, epevs[rc].data.ptr);
-            else
-                handle_in(ep_fd, epevs[rc].data.ptr);
+        while (rc--) {
+            io = epevs[rc].data.ptr;
+            noise("%s: %u for %d/%d",
+                  __func__, epevs[rc].events, io->to, io->from);
+
+            if (epevs[rc].events & EPOLLOUT) {
+                handle_out(ep_fd, io);
+                continue;
+            }
+
+            handle_in(ep_fd, io);
+        }
+
     } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
 }
 
@@ -340,29 +344,6 @@ static void init(int argc, char **argv, struct io *ios)
     init_io(ios + 1);
 }
 
-static int setup_epoll(struct io *ios)
-{
-    struct epoll_event epev;
-    int ep_fd, rc;
-
-    ep_fd = epoll_create(4);
-    if (ep_fd ==- -1) die("epoll_create");
-
-    epev.events = 0;
-
-    epev.data.ptr = ios;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
-    if (rc == -1) die("epoll_ctl/ 0");
-
-    epev.data.ptr = ++ios;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->to, &epev);
-    if (rc != -1) rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, ios->from, &epev);
-    if (rc == -1) die("epoll_ctl/ 1");
-
-    return ep_fd;
-}
-
 /*  main */
 int main(int argc, char **argv)
 {
@@ -371,7 +352,10 @@ int main(int argc, char **argv)
 
     init_diag("relay");
     init(argc, argv, ios);
-    ep_fd = setup_epoll(ios);
+
+    ep_fd = epoll_create(4);
+    if (ep_fd ==- -1) die("epoll_create");
+
     relay_data(ep_fd, ios);
 
     return 0;
