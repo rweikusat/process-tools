@@ -232,18 +232,19 @@ static void relay_data(struct io_input *input)
             while (rc) {
                 if (pfds[pos].revents) {
                     noise("%s: 0x%02x for %d",
-                          __func__, pfds[pos].revents, pfds[rc].fd);
+                          __func__, pfds[pos].revents, pfds[pos].fd);
 
                     ios[pos]->p = io_q;
                     io_q = ios[pos];
 
                     --rc;
-                }
 
-                ++pos;
+                    --n_pfds;
+                    pfds[pos] = pfds[n_pfds];
+                    ios[pos] = ios[n_pfds];
+                } else
+                    ++pos;
             }
-
-            n_pfds = 0;
         }
 
         next = NULL;
