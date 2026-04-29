@@ -17,7 +17,8 @@
 /*  constants */
 enum {
     DEF_BUF_SZ =	4096,
-    DEF_MAX_BUFS =	16
+    DEF_MAX_BUFS =	16,
+    DEF_IO_Q_QUOTA =	8
 };
 
 enum {
@@ -51,6 +52,7 @@ struct io_input {
 
 /*  variables */
 static size_t buf_sz = DEF_BUF_SZ, buf_data_sz, bufs_remain = DEF_MAX_BUFS;
+static unsigned io_q_quota = DEF_IO_Q_QUOTA;
 static struct buf *buffers;
 static void (*noise)(char *, ...) = msg;
 
@@ -209,7 +211,7 @@ static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
     struct io *ios[4], *io_q, *cur, *next;
-    unsigned n_pfds, pos;
+    unsigned n_pfds, pos, quota;
     int rc;
 
     *ios = &input->io;
@@ -248,7 +250,8 @@ static void relay_data(struct io_input *input)
         }
 
         next = NULL;
-        while (io_q) {
+        quota = io_q_quota;
+        while (io_q && quota--) {
             cur = io_q;
             io_q = io_q->p;
 
