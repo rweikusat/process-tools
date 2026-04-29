@@ -221,21 +221,22 @@ static void relay_data(struct input *input)
             rc = poll(pfds, n_pfds, io_q ? 0 : -1);
             if (rc == -1) die("poll");
 
-            do {
+            while (rc) {
                 --rc;
 
                 if (pfds[rc].revents) {
                     ios[rc]->p = io_q;
                     io_q = ios[rc];
                 }
-            } while (rc);
+            }
+
             n_pfds = 0;
         }
 
         next = NULL;
         while (io_q) {
             cur = io_q;
-            io_q - io_q->p;
+            io_q = io_q->p;
 
             rc = cur->handler(cur->fd, cur, &io_q);
             switch (rc) {
@@ -251,6 +252,8 @@ static void relay_data(struct input *input)
                 ios[n_pfds] = cur;
                 pfds[n_pfds].fd = cur->fd;
                 pfds[n_pfds].events = rc;
+
+                ++n_pfds;
             }
         }
         io_q = next;
