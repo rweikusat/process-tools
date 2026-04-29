@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -20,10 +20,9 @@ enum {
 };
 
 enum {
-    WANT_BUF,
-    WANT_INPUT,
-    IN_EOF,
-    CLOSED
+    IN_OK,
+    IN_WANt_BUF,
+    IN_EOF
 };
 
 /*  types */
@@ -33,9 +32,20 @@ struct buf {
 };
 
 struct io {
-    int from, to, state;
-    struct buf *in_buf;
+    struct io *p;
+    int (*handler)(int, void *, struct io **);
+    int fd;
+};
+
+struct io_output {
+    struct io io;
     struct buf *q, **q_chain;
+    int in_state;
+};
+
+struct io_input {
+    struct io io;
+    struct io_output to;
 };
 
 /*  variables */
@@ -99,177 +109,144 @@ static void return_buf(struct buf *buf)
 }
 
 /**  relaying */
-static void ctl_add(int ep_fd, int fd, void *p, unsigned ev)
+static void close_to(int fd)
 {
-    struct epoll_event epev;
-    int rc;
-
-    epev.events = ev;
-    epev.data.ptr = p;
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_ADD, fd, &epev);
-    if (rc == -1) die("epoll_ctl");
-
-    noise("%s: changed %d to %u", __func__, fd, ev);
+    shutdown(fd, SHUT_WR);
+    close(fd);
 }
 
-static void ctl_del(int ep_fd, int fd)
+static int handle_input(int fd, void *arg, struct io **io_q)
 {
-    struct epoll_event dummy;
-    int rc;
-
-    rc = epoll_ctl(ep_fd, EPOLL_CTL_DEL, fd, &dummy);
-    if (rc == -1) die("epoll_ctl");
-
-    noise("%s: deleted %d", __func__, fd);
-}
-
-static void handle_from(int ep_fd, struct io *io)
-{
+    struct input *input;
     struct buf *buf;
+    ssize_t nr;
 
-    switch (io->state) {
-    case WANT_BUF:
-        buf = get_buf();
-        if (buf) {
-            io->in_buf = buf;
-            io->state = WANT_INPUT;
-            ctl_add(ep_fd, io->from, io, EPOLLIN);
-        }
+    input = arg;
 
-        break;
-
-    case WANT_INPUT:
-        if (io->in_buf) break;
-
-        buf = get_buf();
-        if (buf) io->in_buf = buf;
-        else {
-            io->state = WANT_BUF;
-            ctl_del(ep_fd, io->from);
-        }
+    buf = get_buf();
+    if (!buf) {
+        input->to.in_state = IN_WANT_BUF;
+        return -1;
     }
-}
+    input->to.in_state = IN_OK;
 
-static void close_to(struct io *io)
-{
-    shutdown(io->to, SHUT_WR);
-    close(io->to);
-
-    io->state = CLOSED;
-    noise("%s: closed %d", __func__, io->to);
-}
-
-static void handle_out(int ep_fd, struct io *io)
-{
-    struct buf *buf;
-    ssize_t nw;
-
-    while (buf = io->q, buf) {
-        do {
-            nw = write(io->to, buf->s, buf->e - buf->s);
-            if (nw > -1) {
-                buf->s += nw;
-                noise("%s: wrote %zd to %d", __func__, nw, io->to);
-            }
-        } while (nw != -1 && buf->s < buf->e);
-        if (nw == -1) {
-            if (errno == EAGAIN) return;
-            die("write");
-        }
-
-        io->q = buf->p;
-        return_buf(buf);
-    }
-
-    io->q = NULL;
-    io->q_chain = &io->q;
-
-    ctl_del(ep_fd, io->to);
-    if (io->state == IN_EOF) close_to(io);
-}
-
-static void handle_in(int ep_fd, struct io *io)
-{
-    struct buf *buf;
-    ssize_t n;
-
-    buf = io->in_buf;
-    n = read(io->from, buf->s, buf_data_sz);
-    switch (n) {
+    nr = read(fd, buf->s, buf_data_sz);
+    switch (nr) {
     case -1:
-        if (errno == EAGAIN) return;
+        if (errno == EAGAIN) return POLLIN;
         die("read");
 
     case 0:
-        ctl_del(ep_fd, io->from);
-        close(io->from);
-
-        if (io->q) io->state = IN_EOF;
-        else close_to(io);
-        return;
+        close(fd);
+        if (input->to.q) input->to.in_state = IN_EOF;
+        else close_to(input->to.fd);
+        return -1;
     }
 
-    buf->e = buf->s + n;
-    noise("%s: read %zd from %d", __func__, n, io->from);
+    buf->e = buf->s + nr;
+    *input->to.q_chain = buf;
+    input->to.q_chain = &buf->p;
 
-    if (io->q) {
-        buf->p = NULL;
+    input->to.io.p = *io_q;
+    *io_q = &input->to.io;
 
-        *io->q_chain = buf;
-        io->q_chain = &buf->p;
-        io->in_buf = NULL;
-        return;
-    }
-
-    do {
-        n = write(io->to, buf->s, buf->e - buf->s);
-        if (n > -1) {
-            buf->s += n;
-            noise("%s: wrote %zd to %d", __func__, n, io->to);
-        }
-    } while (n != -1 && buf->s < buf->e);
-    if (n == -1) {
-        if (errno != EAGAIN) die("write");
-
-        buf->p = NULL;
-
-        io->q = buf;
-        io->q_chain = &buf->p;
-        io->in_buf = NULL;
-        ctl_add(ep_fd, io->to, io, EPOLLOUT);
-        return;
-    }
-
-    reset_buf(buf);
+    return 0;
 }
 
-static void relay_data(int ep_fd, struct io *ios)
+static int handle_output(int fd, void *arg, struct io **io_q)
 {
-    struct epoll_event epevs[4];
-    struct io *io;
+    struct input *input;
+    struct buf *buf;
+    ssize_t nw;
+
+    input = (void *)((char *)arg - offetof(struct io_input, to));
+
+    buf = input->to.q;
+    nw = write(input->to.io.fd, buf->s, buf->e - buf->s);
+    if (nw == -1) {
+        if (errno == EAGAIN) return POLLOUT;
+        die("write");
+    }
+
+    buf->s += nw;
+    if (buf->s < buf->e) return 0;
+
+    input->to.q = buf->p;
+    return_buf(buf);
+    if (input->to.in_state == IN_WANT_BUF) {
+        input->io.p = *io_q;
+        &io_q - &input->io;
+    }
+
+    if (!input->to.q) {
+        if (input->to.in_state == IN_EOF)
+            close_to(input->to.io.fd);
+        else
+            input->to.q_chain = &input->to.q;
+
+        return -1;
+    }
+
+    return 0;
+}
+
+static void relay_data(struct input *input)
+{
+    struct pollfd pfds[4];
+    struct io *ios[4], *io_q, *cur, *next;
+    unsigned n_pfds;
     int rc;
 
+    *ios = &input->io;
+    pfds->fd = input->io.fd;
+    pfds->events = POLLIN;
+
+    ios[1] = &input[1].io;
+    pfds->fd = input[1].io.fd;
+    pfds->events = POLLIN;
+
+    n_pfds = 2;
+    io_q = NULL;
+
     do {
-        handle_from(ep_fd, ios);
-        handle_from(ep_fd, ios + 1);
+        if (n_pfds) {
+            rc = poll(pfds, n_pfds, io_q ? 0 : -1);
+            if (rc == -1) die("poll");
 
-        rc = epoll_wait(ep_fd, epevs, 4, -1);
-        if (rc == -1) die("epoll_wait");
+            do {
+                --rc;
 
-        while (rc--) {
-            io = epevs[rc].data.ptr;
-            noise("%s: %u for %d/%d",
-                  __func__, epevs[rc].events, io->from, io->to);
-
-            if (epevs[rc].events & EPOLLOUT) {
-                handle_out(ep_fd, io);
-                continue;
-            }
-
-            handle_in(ep_fd, io);
+                if (pfds[rc].revents) {
+                    ios[rc]->p = io_q;
+                    io_q = ios[rc];
+                }
+            } while (rc);
+            n_pfds = 0;
         }
 
-    } while (!(ios[0].state == CLOSED && ios[1].state == CLOSED));
+        next = io_q;
+        io_q = NULL;
+        while (next) {
+            cur = next;
+            next = next->p;
+
+            rc = cur->handler(cur->fd, cur, &io_q);
+            switch (rc) {
+            case -1:
+                break;
+
+            case 0:
+                cur->p = io_q;
+                io_q = cur;
+                break;
+
+            default:
+                ios[n_pfds] = cur;
+                pfds[n_pfds].fd = cur->fd;
+                pfds[n_pfds].events = rc;
+            }
+        }
+    } while (n_pfds || io_q);
 }
 
 /**  init code */
@@ -292,7 +269,7 @@ static void parse_fd_arg(char *s, int *from, int *to)
     if (*to == -1) die("dup");
 }
 
-static void process_args(int argc, char **argv, struct io *ios)
+static void process_args(int argc, char **argv, struct io_input *input)
 {
     int c;
 
@@ -320,43 +297,43 @@ static void process_args(int argc, char **argv, struct io *ios)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
-    parse_fd_arg(*argv, &ios[0].from, &ios[1].to);
-    parse_fd_arg(argv[1], &ios[1].from, &ios[0].to);
+    parse_fd_arg(*argv, &input[0].io.fd, &input[0].to.fd);
+    parse_fd_arg(argv[1], &input[1].io.fd, &input[1].to.fd);
+
     buf_data_sz = buf_sz - sizeof(struct buf);
 }
 
-static void init_io(struct io *io)
+static void init_input(struct io_input *input)
 {
-    io->state = WANT_BUF;
-    io->in_buf = NULL;
-    io->q = NULL;
-    io->q_chain = &io->q;
+    input->in_buf = NULL;
+    input->io.handler = handle_input;
 
-    fcntl(io->from, F_SETFL, fcntl(io->from, F_GETFL) | O_NONBLOCK);
-    fcntl(io->to, F_SETFL, fcntl(io->to, F_GETFL) | O_NONBLOCK);
+    input->to.io.handler = handle_output;
+    input->to.in_state = IN_OK;
+    input->to.q = NULL;
+    input->to.q_chain = &input->to.q;
+
+    fcntl(input->io.fd, F_SETFL, fcntl(input->io.fd, F_GETFL) | O_NONBLOCK);
+    fcntl(input->to.fd, F_SETFL, fcntl(input->to.fd, F_GETFL) | O_NONBLOCK);
 }
 
-static void init(int argc, char **argv, struct io *ios)
+static void init(int argc, char **argv, struct io_input *input)
 {
-    process_args(argc, argv, ios);
+    process_args(argc, argv, input);
 
-    init_io(ios);
-    init_io(ios + 1);
+    init_input(input);
+    init_input(input + 1);
 }
 
 /*  main */
 int main(int argc, char **argv)
 {
-    struct io ios[2];
-    int ep_fd;
+    struct io_input input[2];
 
     init_diag("relay");
-    init(argc, argv, ios);
+    init(argc, argv, input);
 
-    ep_fd = epoll_create(4);
-    if (ep_fd ==- -1) die("epoll_create");
-
-    relay_data(ep_fd, ios);
+    relay_data(input);
 
     return 0;
 }
