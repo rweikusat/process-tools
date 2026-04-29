@@ -318,8 +318,8 @@ static void process_args(int argc, char **argv, struct io_input *input)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
-    parse_fd_arg(*argv, &input[0].io.fd, &input[0].to.io.fd);
-    parse_fd_arg(argv[1], &input[1].io.fd, &input[1].to.io.fd);
+    parse_fd_arg(*argv, &input[0].io.fd, &input[1].to.io.fd);
+    parse_fd_arg(argv[1], &input[1].io.fd, &input[0].to.io.fd);
 
     buf_data_sz = buf_sz - sizeof(struct buf);
 }
