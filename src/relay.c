@@ -40,12 +40,12 @@ struct io {
 struct io_output {
     struct io io;
     struct buf *q, **q_chain;
-    int in_state;
 };
 
 struct io_input {
     struct io io;
     struct io_output to;
+    int state;
 };
 
 /*  variables */
@@ -125,10 +125,10 @@ static int handle_input(int fd, void *arg, struct io **io_q)
 
     buf = get_buf();
     if (!buf) {
-        input->to.in_state = IN_WANT_BUF;
+        input->state = IN_WANT_BUF;
         return -1;
     }
-    input->to.in_state = IN_OK;
+    input->state = IN_OK;
 
     nr = read(fd, buf->s, buf_data_sz);
     switch (nr) {
@@ -138,7 +138,7 @@ static int handle_input(int fd, void *arg, struct io **io_q)
 
     case 0:
         close(fd);
-        if (input->to.q) input->to.in_state = IN_EOF;
+        if (input->to.q) input->state = IN_EOF;
         else close_to(input->to.fd);
         return -1;
     }
@@ -173,13 +173,13 @@ static int handle_output(int fd, void *arg, struct io **io_q)
 
     input->to.q = buf->p;
     return_buf(buf);
-    if (input->to.in_state == IN_WANT_BUF) {
+    if (input->state == IN_WANT_BUF) {
         input->io.p = *io_q;
         &io_q - &input->io;
     }
 
     if (!input->to.q) {
-        if (input->to.in_state == IN_EOF)
+        if (input->state == IN_EOF)
             close_to(input->to.io.fd);
         else
             input->to.q_chain = &input->to.q;
