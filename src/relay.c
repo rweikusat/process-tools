@@ -181,7 +181,7 @@ static int handle_output(int fd, void *arg, struct io **io_q)
         die("write");
     }
 
-    noise("%s: wrote %zs to %d", __func__, nw, fd);
+    noise("%s: wrote %zd to %d", __func__, nw, fd);
 
     buf->s += nw;
     if (buf->s < buf->e) return 0;
