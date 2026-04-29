@@ -224,11 +224,10 @@ static void relay_data(struct input *input)
             n_pfds = 0;
         }
 
-        next = io_q;
-        io_q = NULL;
-        while (next) {
-            cur = next;
-            next = next->p;
+        next = NULL;
+        while (io_q) {
+            cur = io_q;
+            io_q - io_q->p;
 
             rc = cur->handler(cur->fd, cur, &io_q);
             switch (rc) {
@@ -236,8 +235,8 @@ static void relay_data(struct input *input)
                 break;
 
             case 0:
-                cur->p = io_q;
-                io_q = cur;
+                cur->p = next;
+                next = cur;
                 break;
 
             default:
@@ -246,6 +245,7 @@ static void relay_data(struct input *input)
                 pfds[n_pfds].events = rc;
             }
         }
+        io_q = next;
     } while (n_pfds || io_q);
 }
 
