@@ -249,31 +249,34 @@ static void relay_data(struct io_input *input)
             }
         }
 
-        next = NULL;
         quota = io_q_quota;
-        while (io_q && quota--) {
-            cur = io_q;
-            io_q = io_q->p;
+        do {
+            next = NULL;
+            while (io_q) {
+                cur = io_q;
+                io_q = io_q->p;
 
-            rc = cur->handler(cur->fd, cur, &io_q);
-            switch (rc) {
-            case -1:
-                break;
+                rc = cur->handler(cur->fd, cur, &io_q);
+                switch (rc) {
+                case -1:
+                    break;
 
-            case 0:
-                cur->p = next;
-                next = cur;
-                break;
+                case 0:
+                    cur->p = next;
+                    next = cur;
+                    break;
 
-            default:
-                ios[n_pfds] = cur;
-                pfds[n_pfds].fd = cur->fd;
-                pfds[n_pfds].events = rc;
+                default:
+                    ios[n_pfds] = cur;
+                    pfds[n_pfds].fd = cur->fd;
+                    pfds[n_pfds].events = rc;
 
-                ++n_pfds;
+                    ++n_pfds;
+                }
             }
-        }
-        io_q = next;
+
+            io_q = next;
+        } while (--quota && io_q);
     } while (n_pfds || io_q);
 }
 
