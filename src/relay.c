@@ -5,6 +5,7 @@
 
 /*  includes */
 #include <fcntl.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
@@ -21,7 +22,7 @@ enum {
 
 enum {
     IN_OK,
-    IN_WANt_BUF,
+    IN_WANT_BUF,
     IN_EOF
 };
 
@@ -117,7 +118,7 @@ static void close_to(int fd)
 
 static int handle_input(int fd, void *arg, struct io **io_q)
 {
-    struct input *input;
+    struct io_input *input;
     struct buf *buf;
     ssize_t nr;
 
@@ -145,7 +146,7 @@ static int handle_input(int fd, void *arg, struct io **io_q)
         close(fd);
 
         if (input->to.q) input->state = IN_EOF;
-        else close_to(input->to.fd);
+        else close_to(input->to.io.fd);
         return -1;
     }
 
@@ -163,14 +164,14 @@ static int handle_input(int fd, void *arg, struct io **io_q)
 
 static int handle_output(int fd, void *arg, struct io **io_q)
 {
-    struct input *input;
+    struct io_input *input;
     struct buf *buf;
     ssize_t nw;
 
-    input = (void *)((char *)arg - offetof(struct io_input, to));
+    input = (void *)((char *)arg - offsetof(struct io_input, to));
 
     buf = input->to.q;
-    nw = write(input->to.io.fd, buf->s, buf->e - buf->s);
+    nw = write(fd, buf->s, buf->e - buf->s);
     if (nw == -1) {
         if (errno == EAGAIN) return POLLOUT;
         die("write");
@@ -188,7 +189,7 @@ static int handle_output(int fd, void *arg, struct io **io_q)
 
     if (!input->to.q) {
         if (input->state == IN_EOF)
-            close_to(input->to.io.fd);
+            close_to(fd);
         else
             input->to.q_chain = &input->to.q;
 
@@ -198,7 +199,7 @@ static int handle_output(int fd, void *arg, struct io **io_q)
     return 0;
 }
 
-static void relay_data(struct input *input)
+static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
     struct io *ios[4], *io_q, *cur, *next;
@@ -308,24 +309,22 @@ static void process_args(int argc, char **argv, struct io_input *input)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
-    parse_fd_arg(*argv, &input[0].io.fd, &input[0].to.fd);
-    parse_fd_arg(argv[1], &input[1].io.fd, &input[1].to.fd);
+    parse_fd_arg(*argv, &input[0].io.fd, &input[0].to.io.fd);
+    parse_fd_arg(argv[1], &input[1].io.fd, &input[1].to.io.fd);
 
     buf_data_sz = buf_sz - sizeof(struct buf);
 }
 
 static void init_input(struct io_input *input)
 {
-    input->in_buf = NULL;
     input->io.handler = handle_input;
 
     input->to.io.handler = handle_output;
-    input->to.in_state = IN_OK;
     input->to.q = NULL;
     input->to.q_chain = &input->to.q;
 
     fcntl(input->io.fd, F_SETFL, fcntl(input->io.fd, F_GETFL) | O_NONBLOCK);
-    fcntl(input->to.fd, F_SETFL, fcntl(input->to.fd, F_GETFL) | O_NONBLOCK);
+    fcntl(input->to.io.fd, F_SETFL, fcntl(input->to.io.fd, F_GETFL) | O_NONBLOCK);
 }
 
 static void init(int argc, char **argv, struct io_input *input)
