@@ -133,22 +133,30 @@ static int handle_input(int fd, void *arg, struct io **io_q)
     nr = read(fd, buf->s, buf_data_sz);
     switch (nr) {
     case -1:
-        if (errno == EAGAIN) return POLLIN;
+        if (errno == EAGAIN) {
+            return_buf(buf);
+            return POLLIN;
+        }
+
         die("read");
 
     case 0:
+        return_buf(buf);
         close(fd);
+
         if (input->to.q) input->state = IN_EOF;
         else close_to(input->to.fd);
         return -1;
     }
 
+    if (!input->to.q) {
+        input->to.io.p = *io_q;
+        *io_q = &input->to.io;
+    }
+
     buf->e = buf->s + nr;
     *input->to.q_chain = buf;
     input->to.q_chain = &buf->p;
-
-    input->to.io.p = *io_q;
-    *io_q = &input->to.io;
 
     return 0;
 }
