@@ -114,6 +114,8 @@ static void close_to(int fd)
 {
     shutdown(fd, SHUT_WR);
     close(fd);
+
+    noise("%s: closed %d", __func__, fd);
 }
 
 static int handle_input(int fd, void *arg, struct io **io_q)
@@ -144,6 +146,7 @@ static int handle_input(int fd, void *arg, struct io **io_q)
     case 0:
         return_buf(buf);
         close(fd);
+        noise("%s: closed %d", __func__, fd);
 
         if (input->to.q) input->state = IN_EOF;
         else close_to(input->to.io.fd);
@@ -159,6 +162,7 @@ static int handle_input(int fd, void *arg, struct io **io_q)
     *input->to.q_chain = buf;
     input->to.q_chain = &buf->p;
 
+    noise("%s: read %zd from %d", __func__, nr, fd);
     return 0;
 }
 
@@ -176,6 +180,8 @@ static int handle_output(int fd, void *arg, struct io **io_q)
         if (errno == EAGAIN) return POLLOUT;
         die("write");
     }
+
+    noise("%s: wrote %zs to %d", __func__, nw, fd);
 
     buf->s += nw;
     if (buf->s < buf->e) return 0;
@@ -228,6 +234,9 @@ static void relay_data(struct io_input *input)
                 if (pfds[rc].revents) {
                     ios[rc]->p = io_q;
                     io_q = ios[rc];
+
+                    noise("%s: %02x for %d",
+                          __func__, pfds[rc].revents, pfds[rc].fd);
                 }
             }
 
