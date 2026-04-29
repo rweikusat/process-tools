@@ -239,11 +239,11 @@ static void relay_data(struct io_input *input)
                     ios[pos]->p = io_q;
                     io_q = ios[pos];
 
-                    --rc;
-
                     --n_pfds;
                     pfds[pos] = pfds[n_pfds];
                     ios[pos] = ios[n_pfds];
+
+                    --rc;
                 } else
                     ++pos;
             }
