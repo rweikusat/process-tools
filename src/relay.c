@@ -277,7 +277,7 @@ static void relay_data(struct io_input *input)
             }
 
             io_q = next;
-        } while (--quota && io_q);
+        } while (io_q && --quota);
     } while (n_pfds || io_q);
 }
 
