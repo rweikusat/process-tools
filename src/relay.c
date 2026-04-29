@@ -217,8 +217,8 @@ static void relay_data(struct io_input *input)
     pfds->events = POLLIN;
 
     ios[1] = &input[1].io;
-    pfds->fd = input[1].io.fd;
-    pfds->events = POLLIN;
+    pfds[1].fd = input[1].io.fd;
+    pfds[1].events = POLLIN;
 
     n_pfds = 2;
     io_q = NULL;
@@ -235,7 +235,7 @@ static void relay_data(struct io_input *input)
                     ios[rc]->p = io_q;
                     io_q = ios[rc];
 
-                    noise("%s: %02x for %d",
+                    noise("%s: 0x%02x for %d",
                           __func__, pfds[rc].revents, pfds[rc].fd);
                 }
             }
