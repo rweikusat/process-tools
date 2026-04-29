@@ -252,6 +252,7 @@ static void relay_data(struct io_input *input)
         quota = io_q_quota;
         do {
             next = NULL;
+
             while (io_q) {
                 cur = io_q;
                 io_q = io_q->p;
