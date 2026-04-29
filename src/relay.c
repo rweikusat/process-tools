@@ -183,7 +183,7 @@ static int handle_output(int fd, void *arg, struct io **io_q)
     return_buf(buf);
     if (input->state == IN_WANT_BUF) {
         input->io.p = *io_q;
-        &io_q - &input->io;
+        *io_q = &input->io;
     }
 
     if (!input->to.q) {
