@@ -22,7 +22,7 @@ enum {
 };
 
 enum {
-    IN_OK,
+    IN_RDY,
     IN_WANT_BUF,
     IN_EOF
 };
@@ -35,7 +35,7 @@ struct buf {
 
 struct io {
     struct io *p;
-    int (*handler)(int, void *, struct io **);
+    int (*handler)(int, void *, struct io ***);
     int fd;
 };
 
@@ -120,7 +120,7 @@ static void close_to(int fd)
     noise("%s: closed %d", __func__, fd);
 }
 
-static int handle_input(int fd, void *arg, struct io **io_q)
+static int handle_input(int fd, void *arg, struct io ***nxt_chain)
 {
     struct io_input *input;
     struct buf *buf;
@@ -133,7 +133,6 @@ static int handle_input(int fd, void *arg, struct io **io_q)
         input->state = IN_WANT_BUF;
         return -1;
     }
-    input->state = IN_OK;
 
     nr = read(fd, buf->s, buf_data_sz);
     switch (nr) {
@@ -156,8 +155,9 @@ static int handle_input(int fd, void *arg, struct io **io_q)
     }
 
     if (!input->to.q) {
-        input->to.io.p = *io_q;
-        *io_q = &input->to.io;
+        input->to.io.p = NULL;
+        **nxt_chain = &input->to.io;
+        *nxt_chain = &input->to.io.p;
     }
 
     buf->e = buf->s + nr;
@@ -168,7 +168,7 @@ static int handle_input(int fd, void *arg, struct io **io_q)
     return 0;
 }
 
-static int handle_output(int fd, void *arg, struct io **io_q)
+static int handle_output(int fd, void *arg, struct io ***nxt_chain)
 {
     struct io_input *input;
     struct buf *buf;
@@ -191,8 +191,11 @@ static int handle_output(int fd, void *arg, struct io **io_q)
     input->to.q = buf->p;
     return_buf(buf);
     if (input->state == IN_WANT_BUF) {
-        input->io.p = *io_q;
-        *io_q = &input->io;
+        input->io.p = NULL;
+        **nxt_chain = &input->io;
+        *nxt_chain = &input->io.p;
+
+        input->state = IN_RDY;
     }
 
     if (!input->to.q) {
@@ -210,7 +213,7 @@ static int handle_output(int fd, void *arg, struct io **io_q)
 static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
-    struct io *ios[4], *io_q, *cur, *next;
+    struct io *ios[4], *io_q, *cur, *nxt, **nxt_chain;
     unsigned n_pfds, pos, quota;
     int rc;
 
@@ -251,20 +254,22 @@ static void relay_data(struct io_input *input)
 
         quota = io_q_quota;
         do {
-            next = NULL;
+            nxt = NULL;
+            nxt_chain = &nxt;
 
             while (io_q) {
                 cur = io_q;
                 io_q = io_q->p;
 
-                rc = cur->handler(cur->fd, cur, &io_q);
+                rc = cur->handler(cur->fd, cur, &nxt_chain);
                 switch (rc) {
                 case -1:
                     break;
 
                 case 0:
-                    cur->p = next;
-                    next = cur;
+                    cur->p = NULL;
+                    *nxt_chain = cur;
+                    nxt_chain = &cur->p;
                     break;
 
                 default:
@@ -276,7 +281,7 @@ static void relay_data(struct io_input *input)
                 }
             }
 
-            io_q = next;
+            io_q = nxt;
         } while (io_q && --quota);
     } while (n_pfds || io_q);
 }
@@ -338,6 +343,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
 static void init_input(struct io_input *input)
 {
     input->io.handler = handle_input;
+    input->state = IN_RDY;
 
     input->to.io.handler = handle_output;
     input->to.q = NULL;
