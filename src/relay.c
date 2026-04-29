@@ -209,7 +209,7 @@ static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
     struct io *ios[4], *io_q, *cur, *next;
-    unsigned n_pfds;
+    unsigned n_pfds, pos;
     int rc;
 
     *ios = &input->io;
@@ -228,16 +228,19 @@ static void relay_data(struct io_input *input)
             rc = poll(pfds, n_pfds, io_q ? 0 : -1);
             if (rc == -1) die("poll");
 
+            pos = 0;
             while (rc) {
-                --rc;
-
-                if (pfds[rc].revents) {
-                    ios[rc]->p = io_q;
-                    io_q = ios[rc];
-
+                if (pfds[pos].revents) {
                     noise("%s: 0x%02x for %d",
-                          __func__, pfds[rc].revents, pfds[rc].fd);
+                          __func__, pfds[pos].revents, pfds[rc].fd);
+
+                    ios[pos]->p = io_q;
+                    io_q = ios[pos];
+
+                    --rc;
                 }
+
+                ++pos;
             }
 
             n_pfds = 0;
