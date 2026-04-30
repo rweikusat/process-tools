@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -51,16 +52,22 @@ struct io_input {
 };
 
 /*  variables */
-static size_t buf_sz = DEF_BUF_SZ, buf_data_sz, bufs_remain = DEF_MAX_BUFS;
+static struct {
+    char *p, *e;
+    size_t sz, data_sz;
+    struct buf *free;
+} bufs = {
+    .sz = DEF_BUF_SZ
+};
+
 static unsigned io_q_quota = DEF_IO_Q_QUOTA;
-static struct buf *buffers;
 static void (*noise)(char *, ...) = msg;
 
 /*  routines */
 /**  misc */
 static void usage(void)
 {
-    msg("Usage: relay [-q] [-b <bufsize>] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
+    msg("Usage: relay [-b <bufsize>] [-m <maxbuf>] [-q] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
     msg("   Relay data between two file descriptors or pairs of file descriptors.");
     msg("   Data read from <fd0> will be written to <fd1> and vice versa. If an");
     msg("   optional for-write file descriptor (<fdwN>) was specified as well,");
@@ -68,6 +75,8 @@ static void usage(void)
     msg("   data.");
     msg("   The -b option can be used to specifiy an non-default input buffer");
     msg("   size. Default is 4096 bytes.");
+    msg("   The -m option enables changing the maximum number of buffers the");
+    msg("   program wil allocate. Default is 16.");
     msg("   The -q option can be used to disabled printing of informative");
     msg("   messages.");
 
@@ -89,14 +98,13 @@ static struct buf *get_buf(void)
 {
     struct buf *buf;
 
-    buf = buffers;
-    if (buf) buffers = buf->p;
+    buf = bufs.free;
+    if (buf) bufs.free = buf->p;
     else {
-        if (!bufs_remain) return NULL;
+        if (bufs.p == bufs.e) return NULL;
 
-        buf = malloc(buf_sz);
-        if (!buf) die("malloc");
-        --bufs_remain;
+        buf = (void *)bufs.p;
+        bufs.p += bufs.sz;
     }
 
     buf->p = NULL;
@@ -105,10 +113,21 @@ static struct buf *get_buf(void)
     return buf;
 }
 
-static void return_buf(struct buf *buf)
+static inline void return_buf(struct buf *buf)
 {
-    buf->p = buffers;
-    buffers = buf;
+    buf->p = bufs.free;
+    bufs.free = buf;
+}
+
+static void init_buffers(size_t max_bufs)
+{
+    size_t need;
+
+    need = bufs.sz * max_bufs;
+    bufs.p = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0);
+    if (bufs.p == MAP_FAILED) die("mmap");
+
+    bufs.e = bufs.p + need;
 }
 
 /**  relaying */
@@ -134,7 +153,7 @@ static int handle_input(int fd, void *arg, struct io **also)
         return -1;
     }
 
-    nr = read(fd, buf->s, buf_data_sz);
+    nr = read(fd, buf->s, bufs.data_sz);
     switch (nr) {
     case -1:
         if (errno == EAGAIN) {
@@ -314,17 +333,30 @@ static void parse_fd_arg(char *s, int *from, int *to)
     if (*to == -1) die("dup");
 }
 
+
 static void process_args(int argc, char **argv, struct io_input *input)
 {
+    unsigned max_bufs;
     int c;
 
-    while (c = getopt(argc, argv, "+b:q"), c != -1)
+    max_bufs = DEF_MAX_BUFS;
+    while (c = getopt(argc, argv, "+b:m:q"), c != -1)
         switch (c) {
         case 'b':
-            buf_sz = atoi(optarg);
-            if (buf_sz <= sizeof(struct buf)) {
+            bufs.sz = atoi(optarg);
+            if (bufs.sz <= sizeof(struct buf)) {
                 err("%s: buffer size must be larger than %zu",
                     __func__, sizeof(struct buf));
+                exit(1);
+            }
+
+            break;
+
+        case 'm':
+            max_bufs = atoi(optarg);
+            if (max_bufs < 2) {
+                err("%s: maximum number buffers must be at least 2",
+                    __func__);
                 exit(1);
             }
 
@@ -345,7 +377,8 @@ static void process_args(int argc, char **argv, struct io_input *input)
     parse_fd_arg(*argv, &input[0].io.fd, &input[1].to.io.fd);
     parse_fd_arg(argv[1], &input[1].io.fd, &input[0].to.io.fd);
 
-    buf_data_sz = buf_sz - sizeof(struct buf);
+    bufs.data_sz = bufs.sz - sizeof(struct buf);
+    init_buffers(max_bufs);
 }
 
 static void init_input(struct io_input *input)
