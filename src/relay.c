@@ -124,7 +124,7 @@ static void init_buffers(size_t max_bufs)
     size_t need;
 
     need = bufs.sz * max_bufs;
-    bufs.p = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0);
+    bufs.p = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (bufs.p == MAP_FAILED) die("mmap");
 
     bufs.e = bufs.p + need;
