@@ -168,24 +168,29 @@ static int handle_output(int fd, void *arg, struct io **also)
 {
     struct io_input *input;
     struct buf *buf;
+    unsigned quota;
     ssize_t nw;
 
     input = (void *)((char *)arg - offsetof(struct io_input, to));
 
-    buf = input->to.q;
-    nw = write(fd, buf->s, buf->e - buf->s);
-    if (nw == -1) {
-        if (errno == EAGAIN) return POLLOUT;
-        die("write");
-    }
+    quota = 2;
+    do {
+        buf = input->to.q;
+        nw = write(fd, buf->s, buf->e - buf->s);
+        if (nw == -1) {
+            if (errno == EAGAIN) return POLLOUT;
+            die("write");
+        }
 
-    noise("%s: wrote %zd to %d", __func__, nw, fd);
+        noise("%s: wrote %zd to %d", __func__, nw, fd);
 
-    buf->s += nw;
-    if (buf->s < buf->e) return 0;
+        buf->s += nw;
+        if (buf->s < buf->e) return 0;
 
-    input->to.q = buf->p;
-    return_buf(buf);
+        input->to.q = buf->p;
+        return_buf(buf);
+    } while (input->to.q && --quota);
+
     if (input->state == IN_WANT_BUF) {
         *also = &input->io;
         input->state = IN_RDY;
