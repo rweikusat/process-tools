@@ -35,7 +35,7 @@ struct buf {
 
 struct io {
     struct io *p;
-    int (*handler)(int, void *, struct io ***);
+    int (*handler)(int, void *, struct io **);
     int fd;
 };
 
@@ -120,7 +120,7 @@ static void close_to(int fd)
     noise("%s: closed %d", __func__, fd);
 }
 
-static int handle_input(int fd, void *arg, struct io ***nxt_chain)
+static int handle_input(int fd, void *arg, struct io **also)
 {
     struct io_input *input;
     struct buf *buf;
@@ -154,11 +154,7 @@ static int handle_input(int fd, void *arg, struct io ***nxt_chain)
         return -1;
     }
 
-    if (!input->to.q) {
-        input->to.io.p = NULL;
-        **nxt_chain = &input->to.io;
-        *nxt_chain = &input->to.io.p;
-    }
+    if (!input->to.q) *also = &input->to.io;
 
     buf->e = buf->s + nr;
     *input->to.q_chain = buf;
@@ -168,7 +164,7 @@ static int handle_input(int fd, void *arg, struct io ***nxt_chain)
     return 0;
 }
 
-static int handle_output(int fd, void *arg, struct io ***nxt_chain)
+static int handle_output(int fd, void *arg, struct io **also)
 {
     struct io_input *input;
     struct buf *buf;
@@ -191,10 +187,7 @@ static int handle_output(int fd, void *arg, struct io ***nxt_chain)
     input->to.q = buf->p;
     return_buf(buf);
     if (input->state == IN_WANT_BUF) {
-        input->io.p = NULL;
-        **nxt_chain = &input->io;
-        *nxt_chain = &input->io.p;
-
+        *also = &input->io;
         input->state = IN_RDY;
     }
 
@@ -213,7 +206,7 @@ static int handle_output(int fd, void *arg, struct io ***nxt_chain)
 static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
-    struct io *ios[4], *io_q, *cur, *nxt, **nxt_chain;
+    struct io *ios[4], *io_q, *cur, *next, *also;
     unsigned n_pfds, pos, quota;
     int rc;
 
@@ -254,22 +247,23 @@ static void relay_data(struct io_input *input)
 
         quota = io_q_quota;
         do {
-            nxt = NULL;
-            nxt_chain = &nxt;
+            next = 0;
+            noise("%s: running q", __func__);
 
             while (io_q) {
                 cur = io_q;
                 io_q = io_q->p;
 
-                rc = cur->handler(cur->fd, cur, &nxt_chain);
+                also = NULL;
+
+                rc = cur->handler(cur->fd, cur, &also);
                 switch (rc) {
                 case -1:
                     break;
 
                 case 0:
-                    cur->p = NULL;
-                    *nxt_chain = cur;
-                    nxt_chain = &cur->p;
+                    cur->p = next;
+                    next = cur;
                     break;
 
                 default:
@@ -279,9 +273,14 @@ static void relay_data(struct io_input *input)
 
                     ++n_pfds;
                 }
+
+                if (also) {
+                    also->p = next;
+                    next = also;
+                }
             }
 
-            io_q = nxt;
+            io_q = next;
         } while (io_q && --quota);
     } while (n_pfds || io_q);
 }
