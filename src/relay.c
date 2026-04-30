@@ -231,85 +231,108 @@ static int handle_output(int fd, void *arg, struct io **also)
     return 0;
 }
 
+static void do_poll(struct pollfd *pfds, struct io **ios,
+                    unsigned *n_pfds, struct io **io_q)
+{
+    unsigned pos, n;
+    int rc;
+
+    n = *n_pfds;
+
+    rc = poll(pfds, n, *io_q ? 0 : -1);
+    if (rc == -1) die("poll");
+
+    pos = 0;
+    while (rc) {
+        if (pfds[pos].revents) {
+            noise("%s: 0x%02x for %d",
+                  __func__, pfds[pos].revents, pfds[pos].fd);
+
+            ios[pos]->p = *io_q;
+            *io_q = ios[pos];
+
+            --n;
+            pfds[pos] = pfds[n];
+            ios[pos] = ios[n];
+
+            --rc;
+        } else
+            ++pos;
+    }
+
+    *n_pfds = n;
+}
+
+static struct io *run_io_q(struct io *io_q,
+                           struct pollfd *pfds, struct io **ios, unsigned *n_pfds)
+{
+    struct io *cur, *next, *also;
+    unsigned quota, n;
+    int rc;
+
+    quota = io_q_quota;
+    n = *n_pfds;
+    do {
+        next = NULL;
+
+        while (io_q) {
+            cur = io_q;
+            io_q = io_q->p;
+
+            also = NULL;
+
+            rc = cur->handler(cur->fd, cur, &also);
+            switch (rc) {
+            case -1:
+                break;
+
+            case 0:
+                cur->p = next;
+                next = cur;
+                break;
+
+            default:
+                ios[n] = cur;
+                pfds[n].fd = cur->fd;
+                pfds[n].events = rc;
+
+                ++n;
+            }
+
+            if (also) {
+                also->p = next;
+                next = also;
+            }
+        }
+
+        io_q = next;
+    } while (io_q && --quota);
+
+    *n_pfds = n;
+    return io_q;
+}
+
+static void init_pfd(struct io *io, struct io **pio, struct pollfd *pfd)
+{
+    *pio = io;
+    pfd->fd = io->fd;
+    pfd->events = POLLIN;
+}
+
 static void relay_data(struct io_input *input)
 {
     struct pollfd pfds[4];
-    struct io *ios[4], *io_q, *cur, *next, *also;
-    unsigned n_pfds, pos, quota;
-    int rc;
+    struct io *ios[4], *io_q;
+    unsigned n_pfds;
 
-    *ios = &input->io;
-    pfds->fd = input->io.fd;
-    pfds->events = POLLIN;
-
-    ios[1] = &input[1].io;
-    pfds[1].fd = input[1].io.fd;
-    pfds[1].events = POLLIN;
-
+    init_pfd(&input->io, ios, pfds);
+    init_pfd(&input[1].io, ios + 1, pfds + 1);
     n_pfds = 2;
     io_q = NULL;
 
     do {
-        if (n_pfds) {
-            rc = poll(pfds, n_pfds, io_q ? 0 : -1);
-            if (rc == -1) die("poll");
-
-            pos = 0;
-            while (rc) {
-                if (pfds[pos].revents) {
-                    noise("%s: 0x%02x for %d",
-                          __func__, pfds[pos].revents, pfds[pos].fd);
-
-                    ios[pos]->p = io_q;
-                    io_q = ios[pos];
-
-                    --n_pfds;
-                    pfds[pos] = pfds[n_pfds];
-                    ios[pos] = ios[n_pfds];
-
-                    --rc;
-                } else
-                    ++pos;
-            }
-        }
-
-        quota = io_q_quota;
-        do {
-            next = 0;
-            noise("%s: running q", __func__);
-
-            while (io_q) {
-                cur = io_q;
-                io_q = io_q->p;
-
-                also = NULL;
-
-                rc = cur->handler(cur->fd, cur, &also);
-                switch (rc) {
-                case -1:
-                    break;
-
-                case 0:
-                    cur->p = next;
-                    next = cur;
-                    break;
-
-                default:
-                    ios[n_pfds] = cur;
-                    pfds[n_pfds].fd = cur->fd;
-                    pfds[n_pfds].events = rc;
-
-                    ++n_pfds;
-                }
-
-                if (also) {
-                    also->p = next;
-                    next = also;
-                }
-            }
-
-            io_q = next;
-        } while (io_q && --quota);
+        if (n_pfds) do_poll(pfds, ios, &n_pfds, &io_q);
+        io_q = run_io_q(io_q, pfds, ios, &n_pfds);
     } while (n_pfds || io_q);
 }
 
