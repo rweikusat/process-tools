@@ -173,6 +173,10 @@ static int handle_output(int fd, void *arg, struct io **also)
 
     input = (void *)((char *)arg - offsetof(struct io_input, to));
 
+    /*
+      Ensure that the sender will eventually catch up to "now" again
+      by writing faster when a queue of buffers to write exists.
+    */
     quota = 2;
     do {
         buf = input->to.q;
