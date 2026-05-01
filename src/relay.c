@@ -223,7 +223,7 @@ static int handle_output(int fd, void *arg, struct io **also)
     /*
       If more than one buffer has been queued for transmission, the
       sender has moved into the past relative to the receiver. Give it
-      a chance to catch up by ensuring that it's receiver will only
+      a chance to catch up by ensuring that its receiver will only
       read data on every other iteration if it's also on the queue.
     */
     if (input->to.q) {
