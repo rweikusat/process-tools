@@ -23,9 +23,11 @@ enum {
 };
 
 enum {
+    IN_WAIT   ,
     IN_RDY,
     IN_WANT_BUF,
-    IN_EOF
+    IN_EOF,
+    IN_MUTED
 };
 
 /*  types */
@@ -143,9 +145,12 @@ static int handle_input(int fd, void *arg, struct io **also)
 {
     struct io_input *input;
     struct buf *buf;
+    int state;
     ssize_t nr;
 
     input = arg;
+    state = input->state;
+    if (state == IN_MUTED) return 0;
 
     buf = get_buf();
     if (!buf) {
@@ -157,6 +162,7 @@ static int handle_input(int fd, void *arg, struct io **also)
     switch (nr) {
     case -1:
         if (errno == EAGAIN) {
+            input->state = IN_WAIT;
             return_buf(buf);
             return POLLIN;
         }
@@ -173,6 +179,7 @@ static int handle_input(int fd, void *arg, struct io **also)
         return -1;
     }
 
+    if (state == IN_WAIT) input->state = IN_RDY;
     if (!input->to.q) *also = &input->to.io;
 
     buf->e = buf->s + nr;
@@ -187,43 +194,59 @@ static int handle_output(int fd, void *arg, struct io **also)
 {
     struct io_input *input;
     struct buf *buf;
-    unsigned quota;
+    int state;
     ssize_t nw;
 
     input = (void *)((char *)arg - offsetof(struct io_input, to));
 
-    /*
-      Ensure that the sender will eventually catch up to "now" again
-      by writing faster when a queue of buffers to write exists.
-    */
-    quota = 2;
-    do {
-        buf = input->to.q;
-        nw = write(fd, buf->s, buf->e - buf->s);
-        if (nw == -1) {
-            if (errno == EAGAIN) return POLLOUT;
-            die("write");
-        }
+    buf = input->to.q;
+    nw = write(fd, buf->s, buf->e - buf->s);
+    if (nw == -1) {
+        if (errno == EAGAIN) return POLLOUT;
+        die("write");
+    }
 
-        noise("%s: wrote %zd to %d", __func__, nw, fd);
+    noise("%s: wrote %zd to %d", __func__, nw, fd);
 
-        buf->s += nw;
-        if (buf->s < buf->e) return 0;
+    buf->s += nw;
+    if (buf->s < buf->e) return 0;
 
-        input->to.q = buf->p;
-        return_buf(buf);
-    } while (input->to.q && --quota);
+    input->to.q = buf->p;
+    return_buf(buf);
 
     if (input->state == IN_WANT_BUF) {
         *also = &input->io;
         input->state = IN_RDY;
     }
+    state = input->state;
 
-    if (!input->to.q) {
-        if (input->state == IN_EOF)
+    /*
+      If more than one buffer has been queued for transmission, the
+      sender has moved into the past relative to the receiver. Give it
+      a chance to catch up by ensuring that it's receiver will only
+      read data on every other iteration if it's also on the queue.
+    */
+    if (input->to.q) {
+        switch (state) {
+        case IN_RDY:
+            input->state = IN_MUTED;
+            break;
+
+        case IN_MUTED:
+            input->state = IN_RDY;
+        }
+    } else {
+        switch (state) {
+        case IN_EOF:
             close_to(fd);
-        else
+            break;
+
+        case IN_MUTED:
+            input->state = IN_RDY;
+
+        default:
             input->to.q_chain = &input->to.q;
+        }
 
         return -1;
     }
@@ -266,7 +289,7 @@ static void do_poll(struct pollfd *pfds, struct io **ios,
 static struct io *run_io_q(struct io *io_q,
                            struct pollfd *pfds, struct io **ios, unsigned *n_pfds)
 {
-    struct io *cur, *next, *also;
+    struct io *cur, *next, **next_chain, *also;
     unsigned quota, n;
     int rc;
 
@@ -274,6 +297,7 @@ static struct io *run_io_q(struct io *io_q,
     n = *n_pfds;
     do {
         next = NULL;
+        next_chain = &next;
 
         while (io_q) {
             cur = io_q;
@@ -287,8 +311,9 @@ static struct io *run_io_q(struct io *io_q,
                 break;
 
             case 0:
-                cur->p = next;
-                next = cur;
+                cur->p = NULL;
+                *next_chain = cur;
+                next_chain = &cur->p;
                 break;
 
             default:
@@ -407,7 +432,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
 static void init_input(struct io_input *input)
 {
     input->io.handler = handle_input;
-    input->state = IN_RDY;
+    input->state = IN_WAIT;
 
     input->to.io.handler = handle_output;
     input->to.q = NULL;
