@@ -19,7 +19,7 @@
 enum {
     DEF_BUF_SZ =	4096,
     DEF_MAX_BUFS =	16,
-    DEF_IO_Q_QUOTA =	8
+    IO_Q_QUOTA =	8
 };
 
 enum {
@@ -62,7 +62,6 @@ static struct {
     .sz = DEF_BUF_SZ
 };
 
-static unsigned io_q_quota = DEF_IO_Q_QUOTA;
 static void (*noise)(char *, ...) = msg;
 
 /*  routines */
@@ -293,7 +292,7 @@ static struct io *run_io_q(struct io *io_q,
     unsigned quota, n;
     int rc;
 
-    quota = io_q_quota;
+    quota = IO_Q_QUOTA;
     n = *n_pfds;
     do {
         next = NULL;
