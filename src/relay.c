@@ -30,6 +30,16 @@ enum {
     IN_MUTED
 };
 
+enum {
+    D_QUIET,
+    D_INFO,
+    D_DEBUG
+};
+
+/*  macros */
+#define info loggers[D_INFO - 1]
+#define debug loggers[D_DEBUG - 1]
+
 /*  types */
 struct buf {
     struct buf *p;
@@ -62,13 +72,18 @@ static struct {
     .sz = DEF_BUF_SZ
 };
 
-static void (*noise)(char *, ...) = msg;
+static void nop(char *, ...);
+
+static void (*loggers[2])(char *, ...) = {
+    nop,
+    nop
+};
 
 /*  routines */
 /**  misc */
 static void usage(void)
 {
-    msg("Usage: relay [-b <bufsize>] [-m <maxbuf>] [-q] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
+    msg("Usage: relay [-b <bufsize>] [-m <maxbuf>] [-v <verbosity>] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
     msg("   Relay data between two file descriptors or pairs of file descriptors.");
     msg("   Data read from <fd0> will be written to <fd1> and vice versa. If an");
     msg("   optional for-write file descriptor (<fdwN>) was specified as well,");
@@ -78,8 +93,10 @@ static void usage(void)
     msg("   size. Default is 4096 bytes.");
     msg("   The -m option enables changing the maximum number of buffers the");
     msg("   program wil allocate. Default is 16.");
-    msg("   The -q option can be used to disabled printing of informative");
-    msg("   messages.");
+    msg("   The -v option can be used to request printing of informational messages.");
+    msg("   At level 1, messages about bytes read and written will be prinred. On");
+    msg("   level 2, an additional message will be printed before each I/O task");
+    msg("   queue run.");
 
     exit(0);
 }
@@ -137,7 +154,7 @@ static void close_to(int fd)
     shutdown(fd, SHUT_WR);
     close(fd);
 
-    noise("%s: closed %d", __func__, fd);
+    info("%s: closed %d", __func__, fd);
 }
 
 static int handle_input(int fd, void *arg, struct io **also)
@@ -171,7 +188,7 @@ static int handle_input(int fd, void *arg, struct io **also)
     case 0:
         return_buf(buf);
         close(fd);
-        noise("%s: closed %d", __func__, fd);
+        info("%s: closed %d", __func__, fd);
 
         if (input->to.q) input->state = IN_EOF;
         else close_to(input->to.io.fd);
@@ -185,7 +202,7 @@ static int handle_input(int fd, void *arg, struct io **also)
     *input->to.q_chain = buf;
     input->to.q_chain = &buf->p;
 
-    noise("%s: read %zd from %d", __func__, nr, fd);
+    info("%s: read %zd from %d", __func__, nr, fd);
     return 0;
 }
 
@@ -205,7 +222,7 @@ static int handle_output(int fd, void *arg, struct io **also)
         die("write");
     }
 
-    noise("%s: wrote %zd to %d", __func__, nw, fd);
+    info("%s: wrote %zd to %d", __func__, nw, fd);
 
     buf->s += nw;
     if (buf->s < buf->e) return 0;
@@ -267,8 +284,8 @@ static void do_poll(struct pollfd *pfds, struct io **ios,
     pos = 0;
     while (rc) {
         if (pfds[pos].revents) {
-            noise("%s: 0x%02x for %d",
-                  __func__, pfds[pos].revents, pfds[pos].fd);
+            info("%s: 0x%02x for %d",
+                 __func__, pfds[pos].revents, pfds[pos].fd);
 
             ios[pos]->p = *io_q;
             *io_q = ios[pos];
@@ -298,6 +315,7 @@ static struct io *run_io_q(struct io *io_q,
         next = NULL;
         next_chain = &next;
 
+        debug("%s: running q", __func__);
         while (io_q) {
             cur = io_q;
             io_q = io_q->p;
@@ -387,7 +405,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
     int c;
 
     max_bufs = DEF_MAX_BUFS;
-    while (c = getopt(argc, argv, "+b:m:q"), c != -1)
+    while (c = getopt(argc, argv, "+b:m:v:"), c != -1)
         switch (c) {
         case 'b':
             bufs.sz = atoi(optarg);
@@ -409,8 +427,10 @@ static void process_args(int argc, char **argv, struct io_input *input)
 
             break;
 
-        case 'q':
-            noise = nop;
+        case 'v':
+            c = atoi(optarg);
+            if (c >= D_INFO) loggers[D_INFO - 1] = msg;
+            if (c >= D_DEBUG) loggers[D_DEBUG - 1] = msg;
             break;
 
         default:
