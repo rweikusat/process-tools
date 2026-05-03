@@ -63,14 +63,17 @@ struct io_input {
     int state;
 };
 
+struct params {
+    size_t buf_sz, max_bufs;
+    int verbosity;
+};
+
 /*  variables */
 static struct {
     char *p, *e;
     size_t sz, data_sz;
     struct buf *free;
-} bufs = {
-    .sz = DEF_BUF_SZ
-};
+} bufs;
 
 static void nop(char *, ...);
 
@@ -398,44 +401,54 @@ static void parse_fd_arg(char *s, int *from, int *to)
     if (*to == -1) die("dup");
 }
 
-
-static void process_args(int argc, char **argv, struct io_input *input)
+static void process_opts(int n_args, char **argv, struct params *params)
 {
-    unsigned max_bufs;
     int c;
 
-    max_bufs = DEF_MAX_BUFS;
-    while (c = getopt(argc, argv, "+b:m:v:"), c != -1)
+    while (c = getopt(n_args, argv, "+b:m:v:"), c != -1)
         switch (c) {
         case 'b':
-            bufs.sz = atoi(optarg);
-            if (bufs.sz <= sizeof(struct buf)) {
-                err("%s: buffer size must be larger than %zu",
-                    __func__, sizeof(struct buf));
-                exit(1);
-            }
-
+            params->buf_sz = atoi(optarg);
             break;
 
         case 'm':
-            max_bufs = atoi(optarg);
-            if (max_bufs < 2) {
-                err("%s: maximum number buffers must be at least 2",
-                    __func__);
-                exit(1);
-            }
-
+            params->max_bufs = atoi(optarg);
             break;
 
         case 'v':
-            c = atoi(optarg);
-            if (c >= D_INFO) loggers[D_INFO - 1] = msg;
-            if (c >= D_DEBUG) loggers[D_DEBUG - 1] = msg;
+            params->verbosity = atoi(optarg);
             break;
 
         default:
             usage();
         }
+}
+
+static void process_args(int argc, char **argv, struct io_input *input)
+{
+    struct params params;
+
+    params.buf_sz = DEF_BUF_SZ;
+    params.max_bufs = DEF_MAX_BUFS;
+    params.verbosity = 0;
+
+    process_opts(argc, argv, &params);
+
+    if (params.buf_sz <= sizeof(struct buf)) {
+        err("%s: buf size too small (min %zu)",
+            __func__, sizeof(struct buf) + 1);
+        exit(1);
+    }
+    bufs.sz = params.buf_sz;
+
+    if (params.max_bufs < 2) {
+        err("%s: max bufs too small (min 2)",
+            __func__);
+        exit(1);
+    }
+
+    if (params.verbosity > D_QUIET) loggers[D_INFO - 1] = msg;
+    if (params.verbosity > D_INFO) loggers[D_DEBUG - 1] = msg;
 
     argv += optind;
     if (!*argv || !argv[1] || argv[2])
@@ -445,7 +458,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
     parse_fd_arg(argv[1], &input[1].io.fd, &input[0].to.io.fd);
 
     bufs.data_sz = bufs.sz - sizeof(struct buf);
-    init_buffers(max_bufs);
+    init_buffers(params.max_bufs);
 }
 
 static void init_input(struct io_input *input)
