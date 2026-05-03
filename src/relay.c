@@ -485,16 +485,18 @@ static void process_opts_env(struct params *params)
     if (!n_words) return;
     if (state != ST_WHITE) *op = 0;
 
-    optv = alloca(n_words * sizeof(*optv));
+    ++n_words;
+    optv = alloca((n_words + 1) * sizeof(*optv));
     pos = n_words;
+    optv[pos] = NULL;
     do {
         --pos;
         optv[pos] = strs->s;
         strs = strs->p;
-    } while (pos);
+    } while (pos > 1);
 
     c = optind;
-    optind = 0;
+    optind = 1;
     process_opts(n_words, optv, params);
     optind = c;
 }
