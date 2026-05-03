@@ -36,7 +36,14 @@ enum {
     D_DEBUG
 };
 
+enum {
+    ST_WHITE,
+    ST_PARAM
+};
+
 /*  macros */
+#define OPTS_ENV	"RELAY_OPTS"
+
 #define info loggers[D_INFO - 1]
 #define debug loggers[D_DEBUG - 1]
 
@@ -44,6 +51,11 @@ enum {
 struct buf {
     struct buf *p;
     char *s, *e;
+};
+
+struct str {
+    struct str *p;
+    char *s;
 };
 
 struct io {
@@ -424,6 +436,69 @@ static void process_opts(int n_args, char **argv, struct params *params)
         }
 }
 
+static void process_opts_env(struct params *params)
+{
+    char *opts, *p, *op, **optv;
+    struct str *strs, *s;
+    unsigned n_words, pos;
+    int c, state;
+
+    p = getenv(OPTS_ENV);
+    if (!p) return;
+
+    op = opts = alloca(strlen(p) + 1);
+    n_words = 0;
+    strs = NULL;
+    state = ST_WHITE;
+    while (c = *p, c) {
+        if (state == ST_WHITE)
+            switch (c) {
+            case ' ':
+            case '\t':
+                break;
+
+            default:
+                state = ST_PARAM;
+                ++n_words;
+
+                s = alloca(sizeof(*s));
+                s->p = strs;
+                strs = s;
+
+                s->s = op;
+                *op++ = c;
+            }
+        else
+            switch (c) {
+            case ' ':
+            case '\t':
+                state = ST_WHITE;
+                *op++ = 0;
+                break;
+
+            default:
+                *op++ = c;
+            }
+
+        ++p;
+    }
+    if (!n_words) return;
+    if (state != ST_WHITE) *op = 0;
+
+    optv = alloca(n_words * sizeof(*optv));
+    pos = n_words;
+    do {
+        --pos;
+        optv[pos] = strs->s;
+        strs = strs->p;
+    } while (pos);
+
+    c = optind;
+    optind = 0;
+    process_opts(n_words, optv, params);
+    optind = c;
+}
+
 static void process_args(int argc, char **argv, struct io_input *input)
 {
     struct params params;
@@ -432,6 +507,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
     params.max_bufs = DEF_MAX_BUFS;
     params.verbosity = 0;
 
+    process_opts_env(&params);
     process_opts(argc, argv, &params);
 
     if (params.buf_sz <= sizeof(struct buf)) {
