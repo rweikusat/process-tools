@@ -154,7 +154,7 @@ static void do_accepts(int sk, char **argv, sigset_t *omask)
 {
     int client_sk;
 
-    while (client_sk = accept(sk, NULL, NULL), sk != -1) {
+    while (client_sk = accept(sk, NULL, NULL), client_sk != -1) {
         switch (fork()) {
         case -1:
             die("fork");
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
     init_diag("u-listen");
 
     sk = init(argc, argv);
-    argv += optind;
+    argv += optind + 1;
     setup_sigs(&my_sigs, &omask);
     enable_async(sk);
 
