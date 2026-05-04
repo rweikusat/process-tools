@@ -1,5 +1,5 @@
 /*
-  u-talk --- AF_UNIX communication
+  u-talk --- AF_UNIX communication/ active
 */
 
 /*  includes */
@@ -49,7 +49,7 @@ static int init(int argc, char **argv)
     int c, type;
 
     type = SOCK_STREAM;
-    while (c = getopt(argc, argv, "p"), c != -1)
+    while (c = getopt(argc, argv, "+p"), c != -1)
         switch (c) {
         case 'p':
             type = SOCK_SEQPACKET;
