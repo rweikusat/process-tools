@@ -3,9 +3,14 @@
 */
 
 /*  includes */
+#include <fcntl.h>
+#include <grp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -107,7 +112,7 @@ static void dummy(int unused)
 
 static void enable_chld(void)
 {
-    sigaction sa;
+    struct sigaction sa;
 
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
@@ -145,7 +150,7 @@ static void exec_cmd(int sk, char **argv)
     die("execvp");
 }
 
-static void do_acccepts(int sk, char **argv, sigset_t *omask)
+static void do_accepts(int sk, char **argv, sigset_t *omask)
 {
     int client_sk;
 
@@ -155,7 +160,7 @@ static void do_acccepts(int sk, char **argv, sigset_t *omask)
             die("fork");
 
         case 0:
-            sigprocmask(SIG_SETMASK, omask);
+            sigprocmask(SIG_SETMASK, omask, NULL);
             exec_cmd(client_sk, argv);
         }
 
@@ -194,7 +199,7 @@ int main(int argc, char **argv)
         case SIGIO:
             if (*argv) do_accepts(sk, argv, &omask);
             else {
-                client_sk = accept(sk, NULL, N ULL);
+                client_sk = accept(sk, NULL, NULL);
                 if (client_sk == -1) {
                     if (errno == EAGAIN) break;
                     die("accept");
@@ -205,7 +210,7 @@ int main(int argc, char **argv)
                     die("fork");
 
                 case 0:
-                    sigprocmask(SIG_SETMASK, &omask);
+                    sigprocmask(SIG_SETMASK, &omask, NULL);
                     exec_relay(client_sk);
                 }
 
