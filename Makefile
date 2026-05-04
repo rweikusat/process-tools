@@ -46,6 +46,7 @@ HY_PRGS := \
 	have-locks \
 	monitor-ctrl \
 	sane-env \
+	u-listen \
 	u-talk
 
 PRGS := $(addprefix bin/, $(PLAIN_PRGS) $(HY_PRGS))
@@ -106,6 +107,7 @@ $(addprefix bin/, $(PLAIN_PRGS)) : bin/% : tmp/%.o
 $(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 
 bin/syslogging: LIBS=-lpthread
+bin/u-listen bin/u-talk: tmp/fill_sun.o
 
 include $(DEPS)
 
