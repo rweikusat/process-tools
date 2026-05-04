@@ -125,6 +125,12 @@ static void setup_sigs(sigset_t *my_sigs, sigset_t *omask)
     enable_chld();
 }
 
+static void enable_async(int sk)
+{
+    fcntl(sk, F_SETOWN, getpid());
+    fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC);
+}
+
 static void exec_cmd(int sk, char **argv)
 {
     int rc;
