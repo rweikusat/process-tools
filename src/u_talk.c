@@ -19,7 +19,7 @@ static void usage(void)
     msg("    <socket> starts with '//', connect to a socket in the Linux ");
     msg("    abstract namespace whose name is the remainder of the string.");
     msg("    When the optional <cmd> argument is passed, the specified");
-    msg("    command will be executed with stdin and stdout referring to the");
+    msg("    command will be executed with stdin, stdout and stderr referring to the");
     msg("    connected socket. Otherwise, data will be relayed between stdin");
     msg("    and stdout of the process and the connected socket.");
     msg("    The -p option can be used to request using a SOCK_SEQPACKET");
@@ -73,6 +73,8 @@ static void exec_cmd(int sk, char **argv)
     if (rc == -1) die("dup2/0");
     rc = dup2(sk, 1);
     if (rc == -1) die("dup2/1");
+    rc = dup2(sk, 2);
+    if (rc == -1) die("dup2/2");
     close(sk);
 
     execvp(*argv, argv);
