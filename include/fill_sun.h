@@ -1,5 +1,5 @@
 /*
-  initializae a sockaddr_un structure
+  initialize a sockaddr_un structure
 */
 #ifndef proc_tools_fill_sun_h
 #define proc_tools_fill_sun_h
