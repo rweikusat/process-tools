@@ -100,6 +100,31 @@ static int init(int argc, char **argv)
     return listen_on(*argv, type, group);
 }
 
+static void dummy(int unused)
+{
+    (void)unused;
+}
+
+static void enable_chld(void)
+{
+    sigaction sa;
+
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_handler = dummy;
+
+    sigaction(SIGCHLD, &sa, NULL);
+}
+
+static void setup_sigs(sigset_t *my_sigs, sigset_t *omask)
+{
+    sigaddset(my_sigs, SIGIO);
+    sigaddset(my_sigs, SIGCHLD);
+    sigprocmask(SIG_BLOCK, my_sigs, omask);
+
+    enable_chld();
+}
+
 static void exec_cmd(int sk, char **argv)
 {
     int rc;
