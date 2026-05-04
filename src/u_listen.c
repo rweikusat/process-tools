@@ -24,7 +24,7 @@ static void usage(void)
     msg("    on it. If <socket> starts with '//', an address in the Linux abstract");
     msg("    namespace whose name is the remainder of the string will be used.");
     msg("    If the optional <cmd> argument is passed, an instance of it will be");
-    msg("    executed in a forked process with stdin, stdout and stderr referring to");
+    msg("    executed in a forked process with stdin, stdout and stderr referring");
     msg("    to accepted client connection for each client which connects. Otherwise");
     msg("    only one client connection can exist at any given time and data will");
     msg("    be relayed between stdin and stdout of the u-listen process and the");
@@ -227,10 +227,7 @@ int main(int argc, char **argv)
                 sig = waitpid(-1, NULL, WNOHANG);
             while (sig > 0);
 
-            if (!*argv) {
-                sigaddset(&my_sigs, SIGIO);
-                raise(SIGIO);
-            }
+            if (!*argv) sigaddset(&my_sigs, SIGIO);
         }
     }
 
