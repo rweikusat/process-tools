@@ -24,8 +24,8 @@ static void usage(void)
     msg("    on it. If <socket> starts with '//', an address in the Linux abstract");
     msg("    namespace whose name is the remainder of the string will be used.");
     msg("    If the optional <cmd> argument is passed, an instance of it will be");
-    msg("    executed in a forked process with stdin and stdout reffering to");
-    msg("    accepted client connection for each client which connects. Otherwise");
+    msg("    executed in a forked process with stdin, stdout and stderr refering to");
+    msg("    to accepted client connection for each client which connects. Otherwise");
     msg("    only one client connection can exist at any given time and data will");
     msg("    be relayed between stdin and stdout of the u-listen process and the");
     msg("    client connection.");
@@ -144,6 +144,8 @@ static void exec_cmd(int sk, char **argv)
     if (rc == -1) die("dup2/0");
     rc = dup2(sk, 1);
     if (rc == -1) die("dup2/1");
+    rc = dup2(sk, 2);
+    if (rc == -1) die("dup2/2");
     close(sk);
 
     execvp(*argv, argv);
