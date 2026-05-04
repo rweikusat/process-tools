@@ -145,6 +145,26 @@ static void exec_cmd(int sk, char **argv)
     die("execvp");
 }
 
+static void do_acccepts(int sk, char **argv, sigset_t *omask)
+{
+    int client_sk;
+
+    while (client_sk = accept(sk, NULL, NULL), sk != -1) {
+        switch (fork()) {
+        case -1:
+            die("fork");
+
+        case 0:
+            sigprocmask(SIG_SETMASK, omask);
+            exec_cmd(client_sk, argv);
+        }
+
+        close(client_sk);
+    }
+
+    if (errno != EAGAIN) die("accept");
+}
+
 static void exec_relay(int sk)
 {
     char sks[128];
