@@ -14,43 +14,78 @@
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: u-talk [-p] <socket> [<cmd> <arg>*]");
-    msg("    Connect to the AF_UNIX socket speciffied by <socket>. If");
-    msg("    <socket> starts with '//', connect to a socket in the Linux ");
-    msg("    abstract namespace whose name is the remainder of the string.");
-    msg("    When the optional <cmd> argument is passed, the specified");
-    msg("    command will be executed with stdin and stdout referring to the");
-    msg("    connected socket. Otherwise, data will be relayed between stdin");
-    msg("    and stdout of the process and the connected socket.");
+    msg("Usage: u-listen [-g <group>] [-p] <socket> [<cmd> <arg>*]");
+    msg("    Create an AF_UNIX socket bound to the address <socket> and listen ");
+    msg("    on it. If <socket> starts with '//', an address in the Linux abstract");
+    msg("    namespace whose name is the remainder of the string will be used.");
+    msg("    If the optional <cmd> argument is passed, an instance of it will be");
+    msg("    executed in a forked process with stdin and stdout reffering to");
+    msg("    accepted client connection for each client which connects. Otherwise");
+    msg("    only one client connection can exist at any given time and data will");
+    msg("    be relayed between stdin and stdout of the u-listen process and the");
+    msg("    client connection.");
+    msg("    The -g option can be used to specify a group for the listening socket.");
+    msg("    If provided, it will be made writeable by this group.");
     msg("    The -p option can be used to request using a SOCK_SEQPACKET");
     msg("    instead of a SOCK_STREAM socket.");
 
     exit(1);
 }
 
-static int connect_to(char *addr, int type)
+static gid_t gid_for(char *group)
+{
+    struct group *grp;
+
+    grp = getgrnam(group);
+    return grp ? grp->gr_gid : atoi(group);
+}
+
+static int listen_on(char *addr, int type, char *group)
 {
     struct sockaddr_un sun;
     unsigned sun_len;
+    mode_t mode;
+    gid_t gid;
     int rc, sk;
 
-    sk = socket(AF_UNIX, type, 0);
+    sk = socket(AF_UNIX, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (sk == -1) die("socket");
 
     fill_sun(addr, &sun, &sun_len);
-    rc = connect(sk, (struct sockaddr *)&sun, sun_len);
-    if (rc == -1) die("connect");
+    if (*sun.sun_path) unlink(sun.sun_path);
+    rc = bind(sk, (struct sockaddr *)&sun, sun_len);
+    if (rc == -1) die("bind");
+
+    if (group) {
+        gid = gid_for(group);
+        rc = chown(sun.sun_path, -1, gid);
+        if (rc == -1) die("chown");
+
+        mode = 0660;
+    } else
+        mode = 0600;
+    rc = chmod(sun.sun_path, mode);
+    if (rc == -1) die("chmod");
+
+    rc = listen(sk, 10);
+    if (rc == -1) die("listen");
 
     return sk;
 }
 
 static int init(int argc, char **argv)
 {
+    char *group;
     int c, type;
 
+    group = NULL;
     type = SOCK_STREAM;
-    while (c = getopt(argc, argv, "p"), c != -1)
+    while (c = getopt(argc, argv, "+g:p"), c != -1)
         switch (c) {
+        case 'g':
+            group = optarg;
+            break;
+
         case 'p':
             type = SOCK_SEQPACKET;
             break;
@@ -62,7 +97,7 @@ static int init(int argc, char **argv)
     argv += optind;
     if (!*argv) usage();
 
-    return connect_to(*argv, type);
+    return listen_on(*argv, type, group);
 }
 
 static void exec_cmd(int sk, char **argv)
@@ -91,15 +126,55 @@ static void exec_relay(int sk)
 /*  main */
 int main(int argc, char **argv)
 {
-    int sk;
+    sigset_t my_sigs, omask;
+    int client_sk, sk, sig;
 
-    init_diag("u-talk");
+    init_diag("u-listen");
+
     sk = init(argc, argv);
-
     argv += optind;
-    ++argv;
-    if (*argv) exec_cmd(sk, argv);
-    exec_relay(sk);
+    setup_sigs(&my_sigs, &omask);
+    enable_async(sk);
+
+    while (1) {
+        sigwait(&my_sigs, &sig);
+
+        switch (sig) {
+        case SIGIO:
+            if (*argv) do_accepts(sk, argv, &omask);
+            else {
+                client_sk = accept(sk, NULL, N ULL);
+                if (client_sk == -1) {
+                    if (errno == EAGAIN) break;
+                    die("accept");
+                }
+
+                switch (fork()) {
+                case -1:
+                    die("fork");
+
+                case 0:
+                    sigprocmask(SIG_SETMASK, &omask);
+                    exec_relay(client_sk);
+                }
+
+                close(client_sk);
+                sigdelset(&my_sigs, SIGIO);
+            }
+
+            break;
+
+        case SIGCHLD:
+            do
+                sig = waitpid(-1, NULL, WNOHANG);
+            while (sig > 0);
+
+            if (!*argv) {
+                sigaddset(&my_sigs, SIGIO);
+                raise(SIGIO);
+            }
+        }
+    }
 
     return 0;
 }
