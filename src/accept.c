@@ -76,7 +76,7 @@ static void exec_cmd(int sk, char **argv)
     die("execvp");
 }
 
-static void do_accepts(int sk, char **argv, sigset_t *omask)
+static void multi_accept(int sk, char **argv, sigset_t *omask)
 {
     int client_sk;
 
@@ -96,6 +96,16 @@ static void do_accepts(int sk, char **argv, sigset_t *omask)
     if (errno != EAGAIN) die("accept");
 }
 
+static void wait_for_children(void)
+{
+    pid_t pid;
+
+    do
+        pid = waitpid(-1, NULL, WNOHANG);
+    while (pid > 0);
+    if (pid == -1) die("waitpid");
+}
+
 static void exec_relay(int sk)
 {
     char sks[128];
@@ -105,12 +115,38 @@ static void exec_relay(int sk)
     die("execlp");
 }
 
+static void single_accept(int sk, char **unused, sigset_t *omask)
+{
+    int client_sk;
+
+    (void)unused;
+
+    client_sk = accept(sk, NULL, NULL);
+    if (client_sk == -1) {
+        if (errno == EAGAIN) return;
+        die("accept");
+    }
+
+    switch (fork()) {
+    case -1:
+        die("fork");
+
+    case 0:
+        sigprocmask(SIG_SETMASK, omask, NULL);
+        exec_relay(client_sk);
+    }
+
+    close(client_sk);
+    wait(NULL);
+    raise(SIGIO);
+}
+
 /*  main */
 int main(int argc, char **argv)
 {
     sigset_t my_sigs, omask;
-    pid_t pid;
-    int client_sk, sk, sig;
+    void (*do_accept)(int, char **, sigset_t *);
+    int sk, sig;
 
     init_diag("accept");
 
@@ -119,41 +155,18 @@ int main(int argc, char **argv)
     ++argv;
     setup_sigs(&my_sigs, &omask);
     configure_socket(sk);
+    do_accept = *argv ? multi_accept : single_accept;
 
     while (1) {
         sigwait(&my_sigs, &sig);
 
         switch (sig) {
         case SIGIO:
-            if (*argv) do_accepts(sk, argv, &omask);
-            else {
-                client_sk = accept(sk, NULL, NULL);
-                if (client_sk == -1) {
-                    if (errno == EAGAIN) break;
-                    die("accept");
-                }
-
-                switch (fork()) {
-                case -1:
-                    die("fork");
-
-                case 0:
-                    sigprocmask(SIG_SETMASK, &omask, NULL);
-                    exec_relay(client_sk);
-                }
-
-                close(client_sk);
-                wait(NULL);
-                raise(SIGIO);
-            }
-
+            do_accept(sk, argv, &omask);
             break;
 
         case SIGCHLD:
-            do
-                pid = waitpid(-1, NULL, WNOHANG);
-            while (pid > 0);
-            if (pid == -1) die("waitpid");
+            wait_for_children();
         }
     }
 
