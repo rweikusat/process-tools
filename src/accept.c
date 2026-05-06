@@ -142,7 +142,8 @@ int main(int argc, char **argv)
                 }
 
                 close(client_sk);
-                sigdelset(&my_sigs, SIGIO);
+                wait(NULL);
+                raise(SIGIO);
             }
 
             break;
@@ -151,11 +152,6 @@ int main(int argc, char **argv)
             do
                 sig = waitpid(-1, NULL, WNOHANG);
             while (sig > 0);
-
-            if (!*argv) {
-                sigaddset(&my_sigs, SIGIO);
-                raise(SIGIO);
-            }
         }
     }
 
