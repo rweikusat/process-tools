@@ -3,14 +3,11 @@
 */
 
 /*  includes */
-#include <fcntl.h>
 #include <grp.h>
-#include <signal.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "diag.h"
