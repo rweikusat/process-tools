@@ -24,7 +24,7 @@ void fill_sun(char *addr,
     a_dst = sun->sun_path;
 
     if (*addr == '/' && addr[1] == '/') {
-        a_len -= 2;
+        --a_len;
         addr += 2;
 
         *a_dst++ = 0;
