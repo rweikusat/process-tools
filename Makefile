@@ -30,6 +30,7 @@ DEPS :=		$(OBJS:.o=.d)
 # depend on .o file with same names
 #
 PLAIN_PRGS := \
+	accept \
 	chids \
 	clfds \
 	launch \
