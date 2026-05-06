@@ -115,8 +115,8 @@ int main(int argc, char **argv)
 
     p = accv = alloca((3 + argc - optind) * sizeof(*accv));
     *p++ = "accept";
-    sprintf(fds, "%d", sk);
-    *p++ = fds;
+    sprintf(sks, "%d", sk);
+    *p++ = sks;
     while (*argv) *p++ = *argv++;
     *p = NULL;
 
