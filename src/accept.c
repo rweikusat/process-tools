@@ -52,10 +52,12 @@ static void setup_sigs(sigset_t *my_sigs, sigset_t *omask)
     enable_chld();
 }
 
-static void enable_async(int sk)
+static void configure_socket(int sk)
 {
     fcntl(sk, F_SETOWN, getpid());
-    fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC);
+    fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC | O_NONBLOCK);
+
+    fcntl(sk, F_SETFD, fcntl(sk, F_GETFD) | FD_CLOEXEC);
 }
 
 static void exec_cmd(int sk, char **argv)
@@ -115,7 +117,7 @@ int main(int argc, char **argv)
     sk = atoi(*++argv);
     ++argv;
     setup_sigs(&my_sigs, &omask);
-    enable_async(sk);
+    configure_socket(sk);
 
     while (1) {
         sigwait(&my_sigs, &sig);
