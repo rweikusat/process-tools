@@ -54,16 +54,18 @@ static int listen_on(char *addr, int type, char *group)
     rc = bind(sk, (struct sockaddr *)&sun, sun_len);
     if (rc == -1) die("bind");
 
-    if (group) {
-        gid = gid_for(group);
-        rc = chown(sun.sun_path, -1, gid);
-        if (rc == -1) die("chown");
+    if (*sun.sun_path) {
+        if (group) {
+            gid = gid_for(group);
+            rc = chown(sun.sun_path, -1, gid);
+            if (rc == -1) die("chown");
 
-        mode = 0660;
-    } else
-        mode = 0600;
-    rc = chmod(sun.sun_path, mode);
-    if (rc == -1) die("chmod");
+            mode = 0660;
+        } else
+            mode = 0600;
+        rc = chmod(sun.sun_path, mode);
+        if (rc == -1) die("chmod");
+    }
 
     rc = listen(sk, 10);
     if (rc == -1) die("listen");
