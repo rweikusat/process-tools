@@ -71,7 +71,7 @@ static int listen_on(char *addr, int type, char *group)
     return sk;
 }
 
-static int init(int argc, char **argv)
+static int create_socket(int argc, char **argv)
 {
     char *group;
     int c, type;
@@ -106,7 +106,7 @@ int main(int argc, char **argv)
 
     init_diag("u-listen");
 
-    sk = init(argc, argv);
+    sk = create_socket(argc, argv);
     ++optind;
     argv += optind;
 
