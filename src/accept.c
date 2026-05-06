@@ -109,6 +109,7 @@ static void exec_relay(int sk)
 int main(int argc, char **argv)
 {
     sigset_t my_sigs, omask;
+    pid_t pid;
     int client_sk, sk, sig;
 
     init_diag("accept");
@@ -150,8 +151,9 @@ int main(int argc, char **argv)
 
         case SIGCHLD:
             do
-                sig = waitpid(-1, NULL, WNOHANG);
-            while (sig > 0);
+                pid = waitpid(-1, NULL, WNOHANG);
+            while (pid > 0);
+            if (pid == -1) die("waitpid");
         }
     }
 
