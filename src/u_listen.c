@@ -20,15 +20,11 @@
 static void usage(void)
 {
     msg("Usage: u-listen [-g <group>] [-p] <socket> [<cmd> <arg>*]");
-    msg("    Create an AF_UNIX socket bound to the address <socket> and listen ");
-    msg("    on it. If <socket> starts with '//', an address in the Linux abstract");
+    msg("    Create a listening AF_UNIX socket bound to the address <socket>. ");
+    msg("    If <socket> starts with '//', an address in the Linux abstract");
     msg("    namespace whose name is the remainder of the string will be used.");
-    msg("    If the optional <cmd> argument is passed, an instance of it will be");
-    msg("    executed in a forked process with stdin, stdout and stderr referring");
-    msg("    to accepted client connection for each client which connects. Otherwise");
-    msg("    only one client connection can exist at any given time and data will");
-    msg("    be relayed between stdin and stdout of the u-listen process and the");
-    msg("    client connection.");
+    msg("    The accept program will be invoked to handle actual client");
+    msg("    connections.");
     msg("    The -g option can be used to specify a group for the listening socket.");
     msg("    If provided, it will be made writeable by this group.");
     msg("    The -p option can be used to request using a SOCK_SEQPACKET");
@@ -105,131 +101,27 @@ static int init(int argc, char **argv)
     return listen_on(*argv, type, group);
 }
 
-static void dummy(int unused)
-{
-    (void)unused;
-}
-
-static void enable_chld(void)
-{
-    struct sigaction sa;
-
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_handler = dummy;
-
-    sigaction(SIGCHLD, &sa, NULL);
-}
-
-static void setup_sigs(sigset_t *my_sigs, sigset_t *omask)
-{
-    sigaddset(my_sigs, SIGIO);
-    sigaddset(my_sigs, SIGCHLD);
-    sigprocmask(SIG_BLOCK, my_sigs, omask);
-
-    enable_chld();
-}
-
-static void enable_async(int sk)
-{
-    fcntl(sk, F_SETOWN, getpid());
-    fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC);
-}
-
-static void exec_cmd(int sk, char **argv)
-{
-    int rc;
-
-    rc = dup2(sk, 0);
-    if (rc == -1) die("dup2/0");
-    rc = dup2(sk, 1);
-    if (rc == -1) die("dup2/1");
-    rc = dup2(sk, 2);
-    if (rc == -1) die("dup2/2");
-    close(sk);
-
-    execvp(*argv, argv);
-    die("execvp");
-}
-
-static void do_accepts(int sk, char **argv, sigset_t *omask)
-{
-    int client_sk;
-
-    while (client_sk = accept(sk, NULL, NULL), client_sk != -1) {
-        switch (fork()) {
-        case -1:
-            die("fork");
-
-        case 0:
-            sigprocmask(SIG_SETMASK, omask, NULL);
-            exec_cmd(client_sk, argv);
-        }
-
-        close(client_sk);
-    }
-
-    if (errno != EAGAIN) die("accept");
-}
-
-static void exec_relay(int sk)
-{
-    char sks[128];
-
-    sprintf(sks, "%d", sk);
-    execlp("relay", "relay", "0,1", sks, (void *)0);
-    die("execlp");
-}
-
 /*  main */
 int main(int argc, char **argv)
 {
-    sigset_t my_sigs, omask;
-    int client_sk, sk, sig;
+    char **accv, **p, sks[128];
+    int sk;
 
     init_diag("u-listen");
 
     sk = init(argc, argv);
-    argv += optind + 1;
-    setup_sigs(&my_sigs, &omask);
-    enable_async(sk);
+    ++optind;
+    argv += optind;
 
-    while (1) {
-        sigwait(&my_sigs, &sig);
+    p = accv = alloca((3 + argc - optind) * sizeof(*accv));
+    *p++ = "accept";
+    sprintf(fds, "%d", sk);
+    *p++ = fds;
+    while (*argv) *p++ = *argv++;
+    *p = NULL;
 
-        switch (sig) {
-        case SIGIO:
-            if (*argv) do_accepts(sk, argv, &omask);
-            else {
-                client_sk = accept(sk, NULL, NULL);
-                if (client_sk == -1) {
-                    if (errno == EAGAIN) break;
-                    die("accept");
-                }
-
-                switch (fork()) {
-                case -1:
-                    die("fork");
-
-                case 0:
-                    sigprocmask(SIG_SETMASK, &omask, NULL);
-                    exec_relay(client_sk);
-                }
-
-                close(client_sk);
-                sigdelset(&my_sigs, SIGIO);
-            }
-
-            break;
-
-        case SIGCHLD:
-            do
-                sig = waitpid(-1, NULL, WNOHANG);
-            while (sig > 0);
-
-            if (!*argv) sigaddset(&my_sigs, SIGIO);
-        }
-    }
+    execvp(*accv, accv);
+    die("execvp");
 
     return 0;
 }
