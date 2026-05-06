@@ -46,7 +46,7 @@ static int listen_on(char *addr, int type, char *group)
     gid_t gid;
     int rc, sk;
 
-    sk = socket(AF_UNIX, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    sk = socket(AF_UNIX, type, 0);
     if (sk == -1) die("socket");
 
     fill_sun(addr, &sun, &sun_len);
