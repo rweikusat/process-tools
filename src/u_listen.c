@@ -67,9 +67,6 @@ static int listen_on(char *addr, int type, char *group)
         if (rc == -1) die("chmod");
     }
 
-    rc = listen(sk, 10);
-    if (rc == -1) die("listen");
-
     return sk;
 }
 
