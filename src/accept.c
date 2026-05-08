@@ -54,10 +54,15 @@ static void setup_sigs(sigset_t *my_sigs, sigset_t *omask)
 
 static void configure_socket(int sk)
 {
+    int rc;
+
     fcntl(sk, F_SETOWN, getpid());
     fcntl(sk, F_SETFL, fcntl(sk, F_GETFL) | O_ASYNC | O_NONBLOCK);
 
     fcntl(sk, F_SETFD, fcntl(sk, F_GETFD) | FD_CLOEXEC);
+
+    rc = listen(sk, 10);
+    if (rc == -1) die("listen");
 }
 
 static void exec_cmd(int sk, char **argv)
