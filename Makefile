@@ -47,6 +47,7 @@ HY_PRGS := \
 	have-locks \
 	monitor-ctrl \
 	sane-env \
+	t-listen \
 	u-listen \
 	u-talk
 
