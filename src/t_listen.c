@@ -52,7 +52,7 @@ static struct addrinfo *xlate_addr(char *addr)
         exit(1);
     }
 
-    *sep = '@';
+    if (sep) *sep = '@';
     return ainfo;
 }
 
