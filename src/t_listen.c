@@ -27,8 +27,55 @@ static void usage(void)
     exit(1);
 }
 
+static struct addrinfo *xlate_addr(char *addr)
+{
+    char *sep, *port, *addr;
+    struct addrinfo hints, *ainfo;
+    int rc;
+
+    port = addr;
+    sep = strchr(addr, '@');
+    if (sep) {
+        *sep = 0;
+        addr = sep + 1;
+    } else
+        addr = NULL;
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = 0;
+    hints.ai_flags = AI_PASSIVE | AI_NUMERICSERV | AI_ADDRCONFIG;
+
+    rc = getaddrinfo(addr, port, &hints, &ainfo);
+    if (rc) {
+        err("%s: getaddrinfo: %s(%d)",
+            __func__, gai_strerror(rc), rc);
+        exit(1);
+    }
+
+    *sep = '@';
+    return ainfo;
+}
+
 static int listen_on(char *addr)
 {
+    struct addrinfo *ainfo;
+    int rc, sk;
+
+    ainfo = xlate_addr(addr);
+
+    sk = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
+    if (sk == -1) die("socket");
+
+    rc = 1;
+    rc = setsockopt(sk, SOL_SOCKET, SO_REUSEADDR, &rc, sizeof(rc));
+    if (rc == -1) die("setsockopt");
+
+    rc = bind(sk, ainfo->ai_addr, ainfo->ai_addrlen);
+    if (rc == -1) die("bind");
+
+    freeaddrinfo(ainfo);
+    return sk;
 }
 
 /*  main */
