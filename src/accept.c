@@ -136,7 +136,7 @@ static void log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
 
             inet_ntop(ss->ss_family, (char *)ss + ofs,
                       sas, INET6_ADDRSTRLEN);
-            msg("%s: connect from %u@%s", ntohs(port), sas);
+            msg("%s: connect from %u@%s", name, ntohs(port), sas);
             return;
 
         default:
