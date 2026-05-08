@@ -90,8 +90,9 @@ int main(int argc, char **argv)
     sk = listen_on(*argv);
 
     ++argv;
-    p = accv = alloca((3 + argc - 2) * sizeof(*accv));
+    p = accv = alloca((4 + argc - 2) * sizeof(*accv));
     *p++ = "accept";
+    *p++ = "-l";
     sprintf(sks, "%d", sk);
     *p++ = sks;
     while (*argv) *p++ = *argv++;
