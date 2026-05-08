@@ -153,7 +153,8 @@ static void multi_accept(int sk, char **argv, sigset_t *omask,
     socklen_t sa_len;
     int client_sk;
 
-    while (sa_len = sizeof(ss), client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len),
+    while (sa_len = sizeof(ss),
+           client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len),
            client_sk != -1) {
         if (li->enab) log_conn(li->name, sa_len ? &ss : NULL, sa_len);
 
