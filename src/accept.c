@@ -108,7 +108,7 @@ static void wait_for_children(void)
     do
         pid = waitpid(-1, NULL, WNOHANG);
     while (pid > 0);
-    if (pid == -1) die("waitpid");
+    if (pid == -1 && errno != ECHILD) die("waitpid");
 }
 
 static void exec_relay(int sk)
