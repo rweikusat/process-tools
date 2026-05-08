@@ -3,19 +3,33 @@
 */
 
 /*  includes */
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/ip.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "diag.h"
 
+/*  types */
+struct log_info {
+    int enab;
+    char *name;
+};
+
+/*  macros */
+#define DEF_NAME	"relay"
+
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: accept <fd> [<cmd> <arg>*]");
+    msg("Usage: accept [-l] [-n <name>] <fd> [<cmd> <arg>*]");
     msg("    Accept connections on the socket whose file descriptor number is <fd>.");
     msg("    If the optional <cmd> argument is passed, an instance of it will be");
     msg("    executed in a forked process with stdin, stdout and stderr referring");
@@ -23,6 +37,10 @@ static void usage(void)
     msg("    only one client connection can exist at any given time and data will");
     msg("    be relayed between stdin and stdout of the process and the");
     msg("    client connection.");
+    msg("    The -l option can be used to request that messages about new connections");
+    msg("    are logged.");
+    msg("    The -n can be used to specify another name for these than <cmd> (or");
+    msg("    'relay' if no <cmd> was given.)");
 
     exit(1);
 }
@@ -81,11 +99,64 @@ static void exec_cmd(int sk, char **argv)
     die("execvp");
 }
 
-static void multi_accept(int sk, char **argv, sigset_t *omask)
+static void log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
 {
+    struct sockaddr_un *sun;
+    unsigned port, ofs;
+    char *sas;
+
+    if (ss)
+        switch (ss->ss_family) {
+        case AF_UNIX:
+            sun = (void *)ss;
+
+            if (*sun->sun_path) sas = sun->sun_path;
+            else {
+                sa_len -= offsetof(struct sockaddr_un, sun_path);
+                sas = alloca(sa_len + 1);
+                *sas = '@';
+                memcpy(sas + 1, sun->sun_path + 1, sa_len - 1);
+                sas[sa_len] = 0;
+            }
+
+            msg("%s: connect from %s", name, sas);
+            return;
+
+        case AF_INET:
+        case AF_INET6:
+            sas = alloca(INET6_ADDRSTRLEN);
+
+            if (ss->ss_family == AF_INET) {
+                ofs = offsetof(struct sockaddr_in, sin_addr);
+                port = ((struct sockaddr_in *)ss)->sin_port;
+            } else {
+                ofs = offsetof(struct sockaddr_in6, sin6_addr);
+                port = ((struct sockaddr_in6 *)ss)->sin6_port;
+            }
+
+            inet_ntop(ss->ss_family, (char *)ss + ofs,
+                      sas, INET6_ADDRSTRLEN);
+            msg("%s: connect from %u@%s", ntohs(port), sas);
+            return;
+
+        default:
+            warn("%s: cannot handle addresses of family %d", ss->ss_family);
+        }
+
+    msg("%s: connect", name);
+}
+
+static void multi_accept(int sk, char **argv, sigset_t *omask,
+                         struct log_info *li)
+{
+    struct sockaddr_storage ss;
+    socklen_t sa_len;
     int client_sk;
 
-    while (client_sk = accept(sk, NULL, NULL), client_sk != -1) {
+    while (sa_len = sizeof(ss), client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len),
+           client_sk != -1) {
+        if (li->enab) log_conn(li->name, sa_len ? &ss : NULL, sa_len);
+
         switch (fork()) {
         case -1:
             die("fork");
@@ -120,17 +191,23 @@ static void exec_relay(int sk)
     die("execlp");
 }
 
-static void single_accept(int sk, char **unused, sigset_t *omask)
+static void single_accept(int sk, char **unused, sigset_t *omask,
+                          struct log_info *li)
 {
+    struct sockaddr_storage ss;
+    socklen_t sa_len;
     int client_sk;
 
     (void)unused;
 
-    client_sk = accept(sk, NULL, NULL);
+    sa_len = sizeof(&ss);
+    client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len);
     if (client_sk == -1) {
         if (errno == EAGAIN) return;
         die("accept");
     }
+
+    if (li->enab) log_conn(li->name, sa_len ? &ss : NULL, sa_len);
 
     switch (fork()) {
     case -1:
@@ -150,14 +227,34 @@ static void single_accept(int sk, char **unused, sigset_t *omask)
 int main(int argc, char **argv)
 {
     sigset_t my_sigs, omask;
-    void (*do_accept)(int, char **, sigset_t *);
-    int sk, sig;
+    struct log_info li;
+    void (*do_accept)(int, char **, sigset_t *, struct log_info *);
+    int c, sk, sig;
 
     init_diag("accept");
 
-    if (argc < 2) usage();
-    sk = atoi(*++argv);
+    li.enab = 0;
+    li.name = NULL;
+    while (c = getopt(argc, argv, "+ln:"), c != -1)
+        switch (c) {
+        case 'l':
+            li.enab = 1;
+            break;
+
+        case 'n':
+            li.name = optarg;
+            break;
+
+        default:
+            usage();
+        }
+
+    argv += optind;
+    if (!*argv) usage();
+    sk = atoi(*argv);
     ++argv;
+
+    if (!li.name) li.name = *argv ? *argv : DEF_NAME;
     setup_sigs(&my_sigs, &omask);
     configure_socket(sk);
     do_accept = *argv ? multi_accept : single_accept;
@@ -167,7 +264,7 @@ int main(int argc, char **argv)
 
         switch (sig) {
         case SIGIO:
-            do_accept(sk, argv, &omask);
+            do_accept(sk, argv, &omask, &li);
             break;
 
         case SIGCHLD:
