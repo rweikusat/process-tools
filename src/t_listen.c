@@ -83,8 +83,7 @@ int main(int argc, char **argv)
     char **accv, **p, sks[128];
     int sk;
 
-    init_diag("u-listen");
-
+    init_diag("t-listen");
     if (argc < 2) usage();
 
     ++argv;
