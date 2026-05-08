@@ -40,7 +40,7 @@ static void usage(void)
     msg("    The -l option can be used to request that messages about new connections");
     msg("    are logged.");
     msg("    The -n can be used to specify another name for these than <cmd> (or");
-    msg("    'relay' if no <cmd> was given.)");
+    msg("    'relay' if no <cmd> was given).");
 
     exit(1);
 }
