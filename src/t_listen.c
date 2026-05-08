@@ -3,11 +3,10 @@
 */
 
 /*  includes */
-#include <grp.h>
+#include <netdb.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include "diag.h"
@@ -29,7 +28,7 @@ static void usage(void)
 
 static struct addrinfo *xlate_addr(char *addr)
 {
-    char *sep, *port, *addr;
+    char *sep, *port;
     struct addrinfo hints, *ainfo;
     int rc;
 
