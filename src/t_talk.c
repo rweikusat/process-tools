@@ -1,5 +1,5 @@
 /*
-  u-talk --- AF_UNIX communication/ active
+  t-talk --- TCP communication/ active
 */
 
 /*  includes */
@@ -14,55 +14,60 @@
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: u-talk [-p] <socket> [<cmd> <arg>*]");
-    msg("    Connect to the AF_UNIX socket speciffied by <socket>. If");
-    msg("    <socket> starts with '//', connect to a socket in the Linux ");
-    msg("    abstract namespace whose name is the remainder of the string.");
-    msg("    When the optional <cmd> argument is passed, the specified");
-    msg("    command will be executed with stdin, stdout and stderr referring to the");
+    msg("Usage: t-talk <port>@<addr> [<cmd> <arg>*]");
+    msg("    Establish a TCP connection to <port> at <addr>. When the");
+    msg("    optional <cmd> argument is passed, the specified,  <cmd>");
+    msg("    will be executed with stdin, stdout and stderr referring to the");
     msg("    connected socket. Otherwise, data will be relayed between stdin");
     msg("    and stdout of the process and the connected socket.");
-    msg("    The -p option can be used to request using a SOCK_SEQPACKET");
-    msg("    instead of a SOCK_STREAM socket.");
 
     exit(1);
 }
 
-static int connect_to(char *addr, int type)
+static struct addrinfo *xlate_addr(char *addr)
 {
-    struct sockaddr_un sun;
-    unsigned sun_len;
+    char *sep, *port;
+    struct addrinfo hints, *ainfo;
+    int rc;
+
+    port = addr;
+    sep = strchr(addr, '@');
+    if (sep) {
+        *sep = 0;
+        addr = sep + 1;
+    } else
+        addr = NULL;
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = 0;
+    hints.ai_flags = AI_NUMERICSERV | AI_ADDRCONFIG;
+
+    rc = getaddrinfo(addr, port, &hints, &ainfo);
+    if (rc) {
+        err("%s: getaddrinfo: %s(%d)",
+            __func__, gai_strerror(rc), rc);
+        exit(1);
+    }
+
+    if (sep) *sep = '@';
+    return ainfo;
+}
+
+static int connect_to(char *addr)
+{
+    struct addrinfo *ainfo;
     int rc, sk;
 
-    sk = socket(AF_UNIX, type, 0);
+    ainfo = xlate_addr(addr);
+
+    sk = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
     if (sk == -1) die("socket");
 
-    fill_sun(addr, &sun, &sun_len);
-    rc = connect(sk, (struct sockaddr *)&sun, sun_len);
+    rc = connect(sk, ainfo->ai_addr, ainfo->ai_addrlen);
     if (rc == -1) die("connect");
 
     return sk;
-}
-
-static int init(int argc, char **argv)
-{
-    int c, type;
-
-    type = SOCK_STREAM;
-    while (c = getopt(argc, argv, "+p"), c != -1)
-        switch (c) {
-        case 'p':
-            type = SOCK_SEQPACKET;
-            break;
-
-        default:
-            usage();
-        }
-
-    argv += optind;
-    if (!*argv) usage();
-
-    return connect_to(*argv, type);
 }
 
 static void exec_cmd(int sk, char **argv)
@@ -95,10 +100,12 @@ int main(int argc, char **argv)
 {
     int sk;
 
-    init_diag("u-talk");
-    sk = init(argc, argv);
+    init_diag("t-talk");
+    if (argc < 2) usage();
 
-    argv += optind;
+    ++argv;
+    sk = connect_to(*argv);
+
     ++argv;
     if (*argv) exec_cmd(sk, argv);
     exec_relay(sk);
