@@ -3,13 +3,13 @@
 */
 
 /*  includes */
+#include <netdb.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include "diag.h"
-#include "fill_sun.h"
 
 /*  routines */
 static void usage(void)
