@@ -105,7 +105,7 @@ static void log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
     unsigned port, ofs;
     char *sas;
 
-    if (ss)
+    if (sa_len)
         switch (ss->ss_family) {
         case AF_UNIX:
             sun = (void *)ss;
@@ -156,7 +156,7 @@ static void multi_accept(int sk, char **argv, sigset_t *omask,
     while (sa_len = sizeof(ss),
            client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len),
            client_sk != -1) {
-        if (li->enab) log_conn(li->name, sa_len ? &ss : NULL, sa_len);
+        if (li->enab) log_conn(li->name, &ss, sa_len);
 
         switch (fork()) {
         case -1:
@@ -208,7 +208,7 @@ static void single_accept(int sk, char **unused, sigset_t *omask,
         die("accept");
     }
 
-    if (li->enab) log_conn(li->name, sa_len ? &ss : NULL, sa_len);
+    if (li->enab) log_conn(li->name, &ss, sa_len);
 
     switch (fork()) {
     case -1:
