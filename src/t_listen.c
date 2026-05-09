@@ -15,13 +15,17 @@
 /*  routines */
 static void usage(void)
 {
-    msg("Usage: t-listen <port>[@<addr>] [<cmd> <arg>*]");
+    msg("Usage: t-listen [-l] [-n <name>] <port>[@<addr>] [<cmd> <arg>*]");
     msg("    Create a TCP socket listening on <port>. If the optional");
     msg("    @<addr> is present, the socket will be bound to the address");
     msg("    specified by <addr>. Otherwise, the wildcard address will be");
     msg("    used. The accept program will be invoked to handle actual");
     msg("    client connections and any arguments after the first will");
     msg("    be passed to it.");
+    msg("    The -l option can be used to request that information about");
+    msg("    new connection is logged.");
+    msg("    The -n option can be used to specify a non-default name for");
+    msg("    that (default <cmd> or 'relay' if <cmd> wasn't provided).");
 
     exit(1);
 }
@@ -80,19 +84,44 @@ static int listen_on(char *addr)
 /*  main */
 int main(int argc, char **argv)
 {
-    char **accv, **p, sks[128];
-    int sk;
+    char **accv, *name, **p, sks[128];
+    int c, sk, log;
 
     init_diag("t-listen");
-    if (argc < 2) usage();
 
-    ++argv;
+    log = 0;
+    name = NULL;
+    while (c = getopt(argc, argv, "+ln:"), c != -1)
+        switch (c) {
+        case 'l':
+            log = 1;
+            break;
+
+        case 'n':
+            name = optarg;
+            break;
+
+        default:
+            usage();
+        }
+
+    argv += optind;
+    if (!*argv) usage();
     sk = listen_on(*argv);
 
     ++argv;
-    p = accv = alloca((4 + argc - 2) * sizeof(*accv));
+    p = accv = alloca((7 + argc - 2) * sizeof(*accv));
     *p++ = "accept";
-    *p++ = "-l";
+
+    if (log) {
+        *p++ = "-l";
+
+        if (name) {
+            *p++ = "-n";
+            *p++ = name;
+        }
+    }
+
     sprintf(sks, "%d", sk);
     *p++ = sks;
     while (*argv) *p++ = *argv++;
