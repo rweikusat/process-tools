@@ -48,6 +48,7 @@ HY_PRGS := \
 	monitor-ctrl \
 	sane-env \
 	t-listen \
+	t-talk \
 	u-listen \
 	u-talk
 
