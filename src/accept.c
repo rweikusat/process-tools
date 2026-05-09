@@ -17,14 +17,14 @@
 
 #include "diag.h"
 
-/*  types */
-struct log_info {
-    int enab;
-    char *name;
-};
-
 /*  macros */
 #define DEF_NAME	"relay"
+
+/*  prototypes */
+static void nop(char *, struct sockaddr_storage *, socklen_t);
+
+/*  variables */
+static void (*log_conn)(char *, struct sockaddr_storage *, socklen_t) = nop;
 
 /*  routines */
 static void usage(void)
@@ -99,7 +99,14 @@ static void exec_cmd(int sk, char **argv)
     die("execvp");
 }
 
-static void log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
+static void nop(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
+{
+    (void)name;
+    (void)ss;
+    (void)sa_len;
+}
+
+static void do_log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
 {
     struct sockaddr_un *sun;
     unsigned port, ofs;
@@ -147,7 +154,7 @@ static void log_conn(char *name, struct sockaddr_storage *ss, socklen_t sa_len)
 }
 
 static void multi_accept(int sk, char **argv, sigset_t *omask,
-                         struct log_info *li)
+                         char *name)
 {
     struct sockaddr_storage ss;
     socklen_t sa_len;
@@ -156,7 +163,7 @@ static void multi_accept(int sk, char **argv, sigset_t *omask,
     while (sa_len = sizeof(ss),
            client_sk = accept(sk, (struct sockaddr *)&ss, &sa_len),
            client_sk != -1) {
-        if (li->enab) log_conn(li->name, &ss, sa_len);
+        log_conn(name, &ss, sa_len);
 
         switch (fork()) {
         case -1:
@@ -193,7 +200,7 @@ static void exec_relay(int sk)
 }
 
 static void single_accept(int sk, char **unused, sigset_t *omask,
-                          struct log_info *li)
+                          char *name)
 {
     struct sockaddr_storage ss;
     socklen_t sa_len;
@@ -208,7 +215,7 @@ static void single_accept(int sk, char **unused, sigset_t *omask,
         die("accept");
     }
 
-    if (li->enab) log_conn(li->name, &ss, sa_len);
+    log_conn(name, &ss, sa_len);
 
     switch (fork()) {
     case -1:
@@ -228,22 +235,21 @@ static void single_accept(int sk, char **unused, sigset_t *omask,
 int main(int argc, char **argv)
 {
     sigset_t my_sigs, omask;
-    struct log_info li;
-    void (*do_accept)(int, char **, sigset_t *, struct log_info *);
+    void (*do_accept)(int, char **, sigset_t *, char *);
+    char *name;
     int c, sk, sig;
 
     init_diag("accept");
 
-    li.enab = 0;
-    li.name = NULL;
+    name = NULL;
     while (c = getopt(argc, argv, "+ln:"), c != -1)
         switch (c) {
         case 'l':
-            li.enab = 1;
+            log_conn = do_log_conn;
             break;
 
         case 'n':
-            li.name = optarg;
+            name = optarg;
             break;
 
         default:
@@ -255,7 +261,7 @@ int main(int argc, char **argv)
     sk = atoi(*argv);
     ++argv;
 
-    if (!li.name) li.name = *argv ? *argv : DEF_NAME;
+    if (!name) name = *argv ? *argv : DEF_NAME;
     setup_sigs(&my_sigs, &omask);
     configure_socket(sk);
     do_accept = *argv ? multi_accept : single_accept;
@@ -265,7 +271,7 @@ int main(int argc, char **argv)
 
         switch (sig) {
         case SIGIO:
-            do_accept(sk, argv, &omask, &li);
+            do_accept(sk, argv, &omask, name);
             break;
 
         case SIGCHLD:
