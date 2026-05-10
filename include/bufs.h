@@ -10,6 +10,9 @@ struct buf {
     char *s, *e;
 };
 
+/*  variables */
+extern size_t buf_data_sz;
+
 /*  routines */
 static inline void reset_buf(struct buf *buf)
 {
