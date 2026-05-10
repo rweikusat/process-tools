@@ -3,12 +3,15 @@
 */
 
 /*  includes */
+#include <sys/mman.h>
+
 #include "bufs.h"
+#include "diag.h"
 
 /*  variables */
-unsigned buf_data_sz;
+size_t buf_data_sz;
 
-static char *buf_mem, *nuf_mem_e;
+static char *buf_mem, *buf_mem_e;
 static size_t sz;
 static struct buf *bufs;
 
@@ -20,7 +23,7 @@ struct buf *get_buf(void)
     buf = bufs;
     if (buf) bufs = buf->p;
     else {
-        if (buf_mem == buf_mem_e return NULL;
+        if (buf_mem == buf_mem_e) return NULL;
 
         buf = (void *)buf_mem;
         buf_mem += sz;
@@ -43,10 +46,10 @@ void init_buffers(size_t buf_sz, size_t max_bufs)
     size_t need;
 
     sz = buf_sz;
-    bug_data_sz = sz - sizeof(struct buf);
+    buf_data_sz = sz - sizeof(struct buf);
 
     need = buf_sz * max_bufs;
-    bufs_mem = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    buf_mem = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (buf_mem == MAP_FAILED) die("mmap");
 
     buf_mem_e = buf_mem + need;

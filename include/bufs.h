@@ -4,6 +4,9 @@
 #ifndef proc_tools_bufs_h
 #define proc_tools_bufs_h
 
+/*  includes */
+#include <stddef.h>
+
 /*  types */
 struct buf {
     struct buf *p;

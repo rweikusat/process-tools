@@ -8,11 +8,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "bufs.h"
 #include "diag.h"
 
 /*  constants */
@@ -77,12 +77,6 @@ struct params {
 };
 
 /*  variables */
-static struct {
-    char *p, *e;
-    size_t sz, data_sz;
-    struct buf *free;
-} bufs;
-
 static void nop(char *, ...);
 
 static void (*loggers[2])(char *, ...) = {
@@ -117,11 +111,6 @@ static void nop(char *unused, ...)
     (void)unused;
 }
 
-/**  buffer management */
-
-
-
-
 /**  relaying */
 static void close_to(int fd)
 {
@@ -148,7 +137,7 @@ static int handle_input(int fd, void *arg, struct io **also)
         return -1;
     }
 
-    nr = read(fd, buf->s, bufs.data_sz);
+    nr = read(fd, buf->s, buf_data_sz);
     switch (nr) {
     case -1:
         if (errno == EAGAIN) {
@@ -476,8 +465,6 @@ static void process_args(int argc, char **argv, struct io_input *input)
             __func__, sizeof(struct buf) + 1);
         exit(1);
     }
-    bufs.sz = params.buf_sz;
-
     if (params.max_bufs < 2) {
         err("%s: max bufs too small (min 2)",
             __func__);
@@ -494,8 +481,7 @@ static void process_args(int argc, char **argv, struct io_input *input)
     parse_fd_arg(*argv, &input[0].io.fd, &input[1].to.io.fd);
     parse_fd_arg(argv[1], &input[1].io.fd, &input[0].to.io.fd);
 
-    bufs.data_sz = bufs.sz - sizeof(struct buf);
-    init_buffers(params.max_bufs);
+    init_buffers(params.buf_sz, params.max_bufs);
 }
 
 static void init_input(struct io_input *input)
