@@ -48,7 +48,6 @@ enum {
 #define debug loggers[D_DEBUG - 1]
 
 /*  types */
-
 struct str {
     struct str *p;
     char *s;
