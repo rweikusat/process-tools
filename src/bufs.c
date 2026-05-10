@@ -1,0 +1,53 @@
+/*
+  relay buffer management
+*/
+
+/*  includes */
+#include "bufs.h"
+
+/*  variables */
+unsigned buf_data_sz;
+
+static char *buf_mem, *nuf_mem_e;
+static size_t sz;
+static struct buf *bufs;
+
+/*  routines */
+struct buf *get_buf(void)
+{
+    struct buf *buf;
+
+    buf = bufs;
+    if (buf) bufs = buf->p;
+    else {
+        if (buf_mem == buf_mem_e return NULL;
+
+        buf = (void *)buf_mem;
+        buf_mem += sz;
+    }
+
+    buf->p = NULL;
+    reset_buf(buf);
+
+    return buf;
+}
+
+void return_buf(struct buf *buf)
+{
+    buf->p = bufs;
+    bufs = buf;
+}
+
+void init_buffers(size_t buf_sz, size_t max_bufs)
+{
+    size_t need;
+
+    sz = buf_sz;
+    bug_data_sz = sz - sizeof(struct buf);
+
+    need = buf_sz * max_bufs;
+    bufs_mem = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (buf_mem == MAP_FAILED) die("mmap");
+
+    buf_mem_e = buf_mem + need;
+}

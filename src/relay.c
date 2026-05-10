@@ -48,10 +48,6 @@ enum {
 #define debug loggers[D_DEBUG - 1]
 
 /*  types */
-struct buf {
-    struct buf *p;
-    char *s, *e;
-};
 
 struct str {
     struct str *p;
@@ -122,46 +118,9 @@ static void nop(char *unused, ...)
 }
 
 /**  buffer management */
-static inline void reset_buf(struct buf *buf)
-{
-    buf->s = buf->e = (char *)(buf + 1);
-}
 
-static struct buf *get_buf(void)
-{
-    struct buf *buf;
 
-    buf = bufs.free;
-    if (buf) bufs.free = buf->p;
-    else {
-        if (bufs.p == bufs.e) return NULL;
 
-        buf = (void *)bufs.p;
-        bufs.p += bufs.sz;
-    }
-
-    buf->p = NULL;
-    reset_buf(buf);
-
-    return buf;
-}
-
-static inline void return_buf(struct buf *buf)
-{
-    buf->p = bufs.free;
-    bufs.free = buf;
-}
-
-static void init_buffers(size_t max_bufs)
-{
-    size_t need;
-
-    need = bufs.sz * max_bufs;
-    bufs.p = mmap(NULL, need, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    if (bufs.p == MAP_FAILED) die("mmap");
-
-    bufs.e = bufs.p + need;
-}
 
 /**  relaying */
 static void close_to(int fd)
