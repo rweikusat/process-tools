@@ -44,10 +44,10 @@ static int handle_input(int fd, struct io *io)
 static int handle_output(int fd, struct io *io)
 {
     struct pipe *pipe;
+    struct buf *buf;
     ssize_t nw;
 
     pipe = (void *)((char *)io - offsetof(struct pipe, wr));
-    struct buf *buf;
 
     if (pipe->feeder.input.state == IN_MUTED) {
         pipe->feeder.input.state = IN_RDY;
