@@ -66,7 +66,7 @@ static void do_poll(struct pollfd *p_fds, struct io *p_ios, unsigned *n_p,
 void run_io_loop(void)
 {
     struct pollfd p_fds[MAX_IOS];
-    struct io *p_ios[MAX_IOS], *cur;
+    struct io *p_ios[MAX_IOS], *cur, *next;
     unsigned n_p, quota;
     int rc;
 
@@ -84,6 +84,8 @@ void run_io_loop(void)
         }
 
         while (cur) {
+            next = cur->p;
+
             rc = cur->handler(cur->fd, cur);
             if (rc) {
                 p_fds[n_p].fd = cur->fd;
@@ -93,7 +95,7 @@ void run_io_loop(void)
                 ++n_p;
             }
 
-            cur = cur->p;
+            cur = next;
         }
         --quota;
     }
