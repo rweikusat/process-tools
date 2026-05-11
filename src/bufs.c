@@ -15,6 +15,13 @@ static char *buf_mem, *buf_mem_e;
 static size_t sz;
 static struct buf *bufs;
 
+static struct {
+    want_buf_cb *cb;
+    void *p;
+} wanters[2];
+
+static unsigned n_wanters;
+
 /*  routines */
 struct buf *get_buf(void)
 {
@@ -37,6 +44,14 @@ struct buf *get_buf(void)
 
 void return_buf(struct buf *buf)
 {
+    if (n_wanters) {
+        wanters[0].cb(buf, wanters[0].p);
+
+        --n_wanters;
+        if (n_wanters) wanters[0] = wanters[1];
+        return;
+    }
+
     buf->p = bufs;
     bufs = buf;
 }
@@ -53,4 +68,12 @@ void init_buffers(size_t buf_sz, size_t max_bufs)
     if (buf_mem == MAP_FAILED) die("mmap");
 
     buf_mem_e = buf_mem + need;
+}
+
+void want_buf(want_buf_cb *cb, void *p)
+{
+    wanters[n_wanters].cb = cb;
+    wanters[n_wanters].p = p;
+
+    ++n_wanters;
 }
