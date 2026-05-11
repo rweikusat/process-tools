@@ -5,6 +5,7 @@
 /*  includes */
 #include "bufs.h"
 #include "io_queue.h"
+#include "loggers.h"
 #include "pipe.h"
 
 /*  constants */
@@ -35,6 +36,8 @@ static int handle_input(int fd, struct io *io)
         die("read");
     }
 
+    info("%s: read %zd from $d", __func__, fd, nr);
+
     buf->e = buf->s + nr;
     pipe->input.cb(buf. pipe->input.p);
 
@@ -60,6 +63,8 @@ static int handle_output(int fd, struct io *io)
         if (errno == EAGAIN) return POLLOUT;
         die("write");
     }
+
+    info("%s: wrote %zd to %d", __func__, fd, nw);
 
     buf->s += nw;
     if (buf->s == buf->e) {
