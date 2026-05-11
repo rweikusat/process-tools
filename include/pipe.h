@@ -10,13 +10,15 @@
 /*  types */
 struct buf;
 
+typedef void input_cb(struct buf *, void *);
+
 struct pipe {
     struct io rd, wr, *feeder;
 
     struct {
         struct buf *buf;
         void *p;
-        void (*cb)(struct buf *, void *);
+        input_cb *cb;
         int state;
     } input;
 
@@ -24,5 +26,12 @@ struct pipe {
         struct buf *q, **q_chain;
     } output;
 };
+
+/*  routines */
+void init_pipe(int r_fd, int w_fd, struct pipe *pipe);
+
+void want_data(struct pipe *pipe,
+               input_cb *cb, struct buf *buf, void *p);
+void send_data(struct pipe *pipe, struct buf *buf);
 
 #endif
