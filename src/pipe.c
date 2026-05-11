@@ -17,6 +17,22 @@ enum {
 /*  routines */
 static int handle_input(int fd, struct io *io)
 {
+    struct pipe *pipe;
+    struct buf *buf;
+    ssize_t nr;
+
+    pipe = (char *)io - offsetof(struct pipe, rd);
+    buf = pipe->input.buf;
+
+    nr = read(fd, buf->s, buf_data_sz);
+    if (nr == -1) {
+        if (errno == EAGAIN) return POLLIN;
+        die("read");
+    }
+
+    buf->e = buf->s + nr;
+    pipe->input.cb(buf. pipe->input.p);
+
     return 0;
 }
 
