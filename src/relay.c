@@ -14,6 +14,7 @@
 
 #include "bufs.h"
 #include "diag.h"
+#include "loggers.h"
 
 /*  constants */
 enum {
@@ -31,21 +32,12 @@ enum {
 };
 
 enum {
-    D_QUIET,
-    D_INFO,
-    D_DEBUG
-};
-
-enum {
     ST_WHITE,
     ST_PARAM
 };
 
 /*  macros */
 #define OPTS_ENV	"RELAY_OPTS"
-
-#define info loggers[D_INFO - 1]
-#define debug loggers[D_DEBUG - 1]
 
 /*  types */
 struct str {
@@ -75,10 +67,11 @@ struct params {
     int verbosity;
 };
 
-/*  variables */
+/*  prototypes */
 static void nop(char *, ...);
 
-static void (*loggers[2])(char *, ...) = {
+/*  variables */
+void (*loggers[2])(char *, ...) = {
     nop,
     nop
 };
