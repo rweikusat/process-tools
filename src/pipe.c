@@ -21,12 +21,17 @@ static int handle_input(int fd, struct io *io)
     struct buf *buf;
     ssize_t nr;
 
-    pipe = (char *)io - offsetof(struct pipe, rd);
+    pipe = (void *)((char *)io - offsetof(struct pipe, rd));
+    if (pipe->input.state == IN_MUTED) return 0;
     buf = pipe->input.buf;
 
     nr = read(fd, buf->s, buf_data_sz);
     if (nr == -1) {
-        if (errno == EAGAIN) return POLLIN;
+        if (errno == EAGAIN) {
+            pipe->input.state = IN_POLL;
+            return POLLIN;
+        }
+
         die("read");
     }
 
@@ -38,6 +43,39 @@ static int handle_input(int fd, struct io *io)
 
 static int handle_output(int fd, struct io *io)
 {
+    struct pipe *pipe;
+    ssize_t nw;
+
+    pipe = (void *)((char *)io - offsetof(struct pipe, wr));
+    struct buf *buf;
+
+    if (pipe->feeder.input.state == IN_MUTED) {
+        pipe->feeder.input.state = IN_RDY;
+        queue_io(&pipe->feeder.rd);
+    }
+
+    buf = pipe->output.q;
+    nw = write(fd, bugf->s, buf->e - buf->s);
+    if (nw == -1) {
+        if (errno == EAGAIN) return POLLOUT;
+        die("write");
+    }
+
+    buf->s += nw;
+    if (buf->s == buf->e) {
+        pipe->output.q = buf->p;
+        if (!buf->p) pipe->output.q_chain = &pipe->output.q;
+
+        return_buf(buf);
+    }
+
+    if (pipe->output.q) {
+        if (pipe->feeder.input.state == IN_RDY)
+            pipe->feeder->input.state = IN_MUTED;
+
+        queue_io(&pipe->wr);
+    }
+
     return 0;
 }
 
