@@ -13,6 +13,8 @@ struct buf {
     char *s, *e;
 };
 
+typedef void want_buf_cb(struct buf *, void *);
+
 /*  variables */
 extern size_t buf_data_sz;
 
@@ -25,5 +27,6 @@ static inline void reset_buf(struct buf *buf)
 struct buf *get_buf(void);
 void return_buf(struct buf *buf);
 void init_buffers(size_t buf_sz, size_t max_bufs);
+void want_buf(want_buf_cb *cb, void *p);
 
 #endif
