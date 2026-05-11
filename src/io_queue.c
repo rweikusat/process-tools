@@ -3,6 +3,9 @@
 */
 
 /*  includes */
+#include <errno.h>
+
+#include "diag.h"
 #include "io_queue.h"
 
 /*  constants */
@@ -24,6 +27,40 @@ void queue_io(struct io *io)
     io->p = NULL;
     *io_q.chain = io;
     io_q.chain = &io->p;
+}
+
+static void do_poll(struct pollfd *p_fds, struct io *p_ios, unsigned *n_p,
+                    int tmout)
+{
+    unsigned pos, n;
+    int rc;
+
+    n = *n_p;
+    do
+        rc = poll(p_fds, n, tmout);
+    while (rc == -1 && errno == EINTR);
+    switch (rc) {
+    case -1:
+        die("poll");
+
+    case 0:
+        return;
+    }
+
+    pos = 0;
+    do {
+        if (p_fds[pos].revents) {
+            queue_io(p_ios[pos]);
+
+            --rc;
+            --n;
+            p_fds[pos] = p_fds[n];
+            p_ios[pos] = p_ios[n];
+        } else
+            ++pos;
+    } while (rc);
+
+    *n_p = n;
 }
 
 void run_io_loop(void)
