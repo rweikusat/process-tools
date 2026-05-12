@@ -47,19 +47,18 @@ static int handle_input(int fd, struct io *io)
 
     info("%s: read %zd from %d", __func__, nr, fd);
 
-    if (nr) {
-        buf->e = buf->s + nr;
-        pipe->input.cb(buf, pipe->input.p);
-    } else {
+    if (nr) buf->e = buf->s + nr;
+    else {
         close(fd);
         pipe->input.state = IN_EOF;
 
         info("%s: closed %d", __func__, fd);
 
         return_buf(buf);
-        pipe->input.cb(NULL, pipe->input.p);
+        buf = NULL;
     }
 
+    pipe->input.cb(buf, pipe->input.p);
     return 0;
 }
 
