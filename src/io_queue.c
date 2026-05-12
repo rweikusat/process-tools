@@ -87,6 +87,8 @@ void run_io_loop(void)
         if (n_p && !(cur && quota)) {
             do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
             quota = Q_QUOTA;
+
+            if (!cur) continue;
         }
 
         debug("%s: running queue", __func__);
