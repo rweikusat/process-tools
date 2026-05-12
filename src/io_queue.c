@@ -89,6 +89,7 @@ void run_io_loop(void)
             quota = Q_QUOTA;
         }
 
+        debug("%s: running queue", __func__);
         while (cur) {
             next = cur->p;
 
