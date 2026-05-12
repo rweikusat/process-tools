@@ -20,15 +20,6 @@
 enum {
     DEF_BUF_SZ =	4096,
     DEF_MAX_BUFS =	16,
-    IO_Q_QUOTA =	8
-};
-
-enum {
-    IN_WAIT   ,
-    IN_RDY,
-    IN_WANT_BUF,
-    IN_EOF,
-    IN_MUTED
 };
 
 enum {
@@ -45,23 +36,6 @@ struct str {
     char *s;
 };
 
-struct io {
-    struct io *p;
-    int (*handler)(int, void *, struct io **);
-    int fd;
-};
-
-struct io_output {
-    struct io io;
-    struct buf *q, **q_chain;
-};
-
-struct io_input {
-    struct io io;
-    struct io_output to;
-    int state;
-};
-
 struct params {
     size_t buf_sz, max_bufs;
     int verbosity;
@@ -69,12 +43,15 @@ struct params {
 
 /*  prototypes */
 static void nop(char *, ...);
+static void handle_input(struct buf *, void *);
 
 /*  variables */
 void (*loggers[2])(char *, ...) = {
     nop,
     nop
 };
+
+static struct pipe pipes[2];
 
 /*  routines */
 /**  misc */
@@ -103,254 +80,53 @@ static void nop(char *unused, ...)
     (void)unused;
 }
 
-/**  relaying */
-static void close_to(int fd)
+/**  relay callbacks */
+static void got_buf(struct buf *buf, void *p)
 {
-    shutdown(fd, SHUT_WR);
-    close(fd);
-
-    info("%s: closed %d", __func__, fd);
+    want_data(p, handle_input, buf, p);
 }
 
-static int handle_input(int fd, void *arg, struct io **also)
+static void handle_input(struct buf *buf, void *p)
 {
-    struct io_input *input;
-    struct buf *buf;
-    int state;
-    ssize_t nr;
+    struct pipe *me, *other;
 
-    input = arg;
-    state = input->state;
-    if (state == IN_MUTED) return 0;
+    me = p;
+    other = me == pipes ? pipes + 1 : pipes;
+
+    if (!buf) {
+        all_sent(other);
+        return;
+    }
+
+    send_data(other, buf);
 
     buf = get_buf();
     if (!buf) {
-        input->state = IN_WANT_BUF;
-        return -1;
+        want_buf(got_buf, me);
+        return;
     }
 
-    nr = read(fd, buf->s, buf_data_sz);
-    switch (nr) {
-    case -1:
-        if (errno == EAGAIN) {
-            input->state = IN_WAIT;
-            return_buf(buf);
-            return POLLIN;
-        }
-
-        die("read");
-
-    case 0:
-        return_buf(buf);
-        close(fd);
-        info("%s: closed %d", __func__, fd);
-
-        if (input->to.q) input->state = IN_EOF;
-        else close_to(input->to.io.fd);
-        return -1;
-    }
-
-    if (state == IN_WAIT) input->state = IN_RDY;
-    if (!input->to.q) *also = &input->to.io;
-
-    buf->e = buf->s + nr;
-    *input->to.q_chain = buf;
-    input->to.q_chain = &buf->p;
-
-    info("%s: read %zd from %d", __func__, nr, fd);
-    return 0;
-}
-
-static int handle_output(int fd, void *arg, struct io **also)
-{
-    struct io_input *input;
-    struct buf *buf;
-    int state;
-    ssize_t nw;
-
-    input = (void *)((char *)arg - offsetof(struct io_input, to));
-
-    buf = input->to.q;
-    nw = write(fd, buf->s, buf->e - buf->s);
-    if (nw == -1) {
-        if (errno == EAGAIN) return POLLOUT;
-        die("write");
-    }
-
-    info("%s: wrote %zd to %d", __func__, nw, fd);
-
-    buf->s += nw;
-    if (buf->s < buf->e) return 0;
-
-    input->to.q = buf->p;
-    return_buf(buf);
-
-    if (input->state == IN_WANT_BUF) {
-        *also = &input->io;
-        input->state = IN_RDY;
-    }
-    state = input->state;
-
-    /*
-      If more than one buffer has been queued for transmission, the
-      sender has moved into the past relative to the receiver. Give it
-      a chance to catch up by ensuring that its receiver will only
-      read data on every other iteration if it's also on the queue.
-    */
-    if (input->to.q) {
-        switch (state) {
-        case IN_RDY:
-            input->state = IN_MUTED;
-            break;
-
-        case IN_MUTED:
-            input->state = IN_RDY;
-        }
-    } else {
-        switch (state) {
-        case IN_EOF:
-            close_to(fd);
-            break;
-
-        case IN_MUTED:
-            input->state = IN_RDY;
-
-        default:
-            input->to.q_chain = &input->to.q;
-        }
-
-        return -1;
-    }
-
-    return 0;
-}
-
-static void do_poll(struct pollfd *pfds, struct io **ios,
-                    unsigned *n_pfds, struct io **io_q)
-{
-    unsigned pos, n;
-    int rc;
-
-    n = *n_pfds;
-
-    rc = poll(pfds, n, *io_q ? 0 : -1);
-    if (rc == -1) die("poll");
-
-    pos = 0;
-    while (rc) {
-        if (pfds[pos].revents) {
-            info("%s: 0x%02x for %d",
-                 __func__, pfds[pos].revents, pfds[pos].fd);
-
-            ios[pos]->p = *io_q;
-            *io_q = ios[pos];
-
-            --n;
-            pfds[pos] = pfds[n];
-            ios[pos] = ios[n];
-
-            --rc;
-        } else
-            ++pos;
-    }
-
-    *n_pfds = n;
-}
-
-static struct io *run_io_q(struct io *io_q,
-                           struct pollfd *pfds, struct io **ios, unsigned *n_pfds)
-{
-    struct io *cur, *next, **next_chain, *also;
-    unsigned quota, n;
-    int rc;
-
-    quota = IO_Q_QUOTA;
-    n = *n_pfds;
-    do {
-        next = NULL;
-        next_chain = &next;
-
-        debug("%s: running q", __func__);
-        while (io_q) {
-            cur = io_q;
-            io_q = io_q->p;
-
-            also = NULL;
-
-            rc = cur->handler(cur->fd, cur, &also);
-            switch (rc) {
-            case -1:
-                break;
-
-            case 0:
-                cur->p = NULL;
-                *next_chain = cur;
-                next_chain = &cur->p;
-                break;
-
-            default:
-                ios[n] = cur;
-                pfds[n].fd = cur->fd;
-                pfds[n].events = rc;
-
-                ++n;
-            }
-
-            if (also) {
-                also->p = next;
-                next = also;
-            }
-        }
-
-        io_q = next;
-    } while (io_q && --quota);
-
-    *n_pfds = n;
-    return io_q;
-}
-
-static void init_pfd(struct io *io, struct io **pio, struct pollfd *pfd)
-{
-    *pio = io;
-    pfd->fd = io->fd;
-    pfd->events = POLLIN;
-}
-
-static void relay_data(struct io_input *input)
-{
-    struct pollfd pfds[4];
-    struct io *ios[4], *io_q;
-    unsigned n_pfds;
-
-    init_pfd(&input->io, ios, pfds);
-    init_pfd(&input[1].io, ios + 1, pfds + 1);
-    n_pfds = 2;
-    io_q = NULL;
-
-    do {
-        if (n_pfds) do_poll(pfds, ios, &n_pfds, &io_q);
-        io_q = run_io_q(io_q, pfds, ios, &n_pfds);
-    } while (n_pfds || io_q);
+    want_data(me, handle_input, buf, me);
 }
 
 /**  init code */
-static void parse_fd_arg(char *s, int *from, int *to)
+static void parse_fd_arg(char *s, int *rd, int *wr)
 {
     char *p;
 
     p = strchr(s, ',');
     if (p) {
         *p = 0;
-        *from = atoi(s);
-        *to = atoi(p + 1);
+        *rd = atoi(s);
+        *wr = atoi(p + 1);
         *p = ',';
 
         return;
     }
 
-    *from = atoi(s);
-    *to = dup(*from);
-    if (*to == -1) die("dup");
+    *rd = atoi(s);
+    *wr = dup(*rd);
+    if (*wr == -1) die("dup");
 }
 
 static void process_opts(int n_args, char **argv, struct params *params)
@@ -441,9 +217,10 @@ static void process_opts_env(struct params *params)
     optind = c;
 }
 
-static void process_args(int argc, char **argv, struct io_input *input)
+static void process_args(int argc, char **argv)
 {
     struct params params;
+    int rd, wr;
 
     params.buf_sz = DEF_BUF_SZ;
     params.max_bufs = DEF_MAX_BUFS;
@@ -470,31 +247,13 @@ static void process_args(int argc, char **argv, struct io_input *input)
     if (!*argv || !argv[1] || argv[2])
         usage();
 
-    parse_fd_arg(*argv, &input[0].io.fd, &input[1].to.io.fd);
-    parse_fd_arg(argv[1], &input[1].io.fd, &input[0].to.io.fd);
+    parse_fd_arg(*argv, &rd, &wr);
+    init_pipe(rd, wr, pipes + 1, pipes);
+
+    parse_fd_arg(argv[1], &rd, &wr);
+    init_pipe(rd, wr, pipes, pipes + 1);
 
     init_buffers(params.buf_sz, params.max_bufs);
-}
-
-static void init_input(struct io_input *input)
-{
-    input->io.handler = handle_input;
-    input->state = IN_WAIT;
-
-    input->to.io.handler = handle_output;
-    input->to.q = NULL;
-    input->to.q_chain = &input->to.q;
-
-    fcntl(input->io.fd, F_SETFL, fcntl(input->io.fd, F_GETFL) | O_NONBLOCK);
-    fcntl(input->to.io.fd, F_SETFL, fcntl(input->to.io.fd, F_GETFL) | O_NONBLOCK);
-}
-
-static void init(int argc, char **argv, struct io_input *input)
-{
-    process_args(argc, argv, input);
-
-    init_input(input);
-    init_input(input + 1);
 }
 
 /*  main */
@@ -503,7 +262,7 @@ int main(int argc, char **argv)
     struct io_input input[2];
 
     init_diag("relay");
-    init(argc, argv, input);
+    process_args(argc, argv);
 
     relay_data(input);
 
