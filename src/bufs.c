@@ -44,6 +44,8 @@ struct buf *get_buf(void)
 
 void return_buf(struct buf *buf)
 {
+    buf->s = (void *)(buf + 1);
+
     if (n_wanters) {
         wanters[0].cb(buf, wanters[0].p);
 
