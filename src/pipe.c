@@ -110,7 +110,7 @@ static int handle_output(int fd, struct io *io)
 
 static inline void set_nonblocking(int fd)
 {
-    fcntl(fd, F_SETFL, fcntl(input->io.fd, F_GETFL) | O_NONBLOCK);
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 }
 
 void init_pipe(int r_fd, int w_fd, struct pipe *feeder, struct pipe *pipe)

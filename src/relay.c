@@ -14,7 +14,9 @@
 
 #include "bufs.h"
 #include "diag.h"
+#include "io_queue.h"
 #include "loggers.h"
+#include "pipe.h"
 
 /*  constants */
 enum {
@@ -259,13 +261,11 @@ static void process_args(int argc, char **argv)
 /*  main */
 int main(int argc, char **argv)
 {
-    struct io_input input[2];
-
     init_diag("relay");
     process_args(argc, argv);
 
-    want_data(pipe, handle_input, get_buf(), pipe);
-    want_data(pipe + 1, handle_input, get_buf(), pipe + 1);
+    want_data(pipes, handle_input, get_buf(), pipes);
+    want_data(pipes + 1, handle_input, get_buf(), pipes + 1);
     run_io_loop();
 
     return 0;
