@@ -264,7 +264,9 @@ int main(int argc, char **argv)
     init_diag("relay");
     process_args(argc, argv);
 
-    relay_data(input);
+    want_data(pipe, handle_input, get_buf(), pipe);
+    want_data(pipe + 1, handle_input, get_buf(), pipe + 1);
+    run_io_loop();
 
     return 0;
 }
