@@ -33,5 +33,6 @@ void init_pipe(int r_fd, int w_fd, struct pipe *pipe);
 void want_data(struct pipe *pipe,
                input_cb *cb, struct buf *buf, void *p);
 void send_data(struct pipe *pipe, struct buf *buf);
+void all_sent(struct pipe *pipe);
 
 #endif
