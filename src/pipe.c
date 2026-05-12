@@ -78,8 +78,9 @@ static int handle_output(int fd, struct io *io)
     ssize_t nw;
     int unmuted;
 
-    unmuted = 0;
     pipe = (void *)((char *)io - offsetof(struct pipe, wr));
+
+    unmuted = 0;
     if (pipe->feeder->input.state == IN_MUTED) {
         pipe->feeder->input.state = IN_ACTIVE;
         queue_io(&pipe->feeder->rd);
