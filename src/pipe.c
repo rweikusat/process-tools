@@ -12,7 +12,8 @@
 enum {
     IN_POLL,
     IN_RDY,
-    IN_MUTED
+    IN_MUTED,
+    IN_EOF
 };
 
 /*  routines */
@@ -38,8 +39,16 @@ static int handle_input(int fd, struct io *io)
 
     info("%s: read %zd from $d", __func__, fd, nr);
 
-    buf->e = buf->s + nr;
-    pipe->input.cb(buf. pipe->input.p);
+    if (nr) {
+        buf->e = buf->s + nr;
+        pipe->input.cb(buf. pipe->input.p);
+    } else {
+        close(pipe->rd.fd);
+        pipe->input.state = IN_EOF;
+
+        return_buf(buf);
+        pipe-?input.cb(NULL, pipe->input.p);
+    }
 
     return 0;
 }
