@@ -18,7 +18,8 @@
 /*  constants */
 enum {
     IN_POLL,
-    IN_RDY,
+    IN_ACTIVE,
+    IN_PASSIVE,
     IN_MUTED,
     IN_EOF
 };
@@ -43,9 +44,9 @@ static int handle_input(int fd, struct io *io)
 
         die("read");
     }
-    pipe->input.state = IN_RDY;
 
     info("%s: read %zd from %d", __func__, nr, fd);
+    pipe->input.state = IN_PASSIVE;
 
     if (nr) buf->e = buf->s + nr;
     else {
@@ -75,10 +76,15 @@ static int handle_output(int fd, struct io *io)
     struct pipe *pipe;
     struct buf *buf;
     ssize_t nw;
+    int unmuted;
 
+    unmuted = 0;
     pipe = (void *)((char *)io - offsetof(struct pipe, wr));
-
     if (pipe->feeder->input.state == IN_MUTED) {
+        pipe->feeder->input.state = IN_ACTIVE;
+        queue_io(&pipe->feeder->rd);
+
+        unmuted = 1;
     }
 
     buf = pipe->output.q;
@@ -99,12 +105,8 @@ static int handle_output(int fd, struct io *io)
     }
 
     if (pipe->output.q) {
-        if (pipe->feeder->input.state == IN_RDY)
+        if (!unmuted && pipe->feeder->input.state == IN_ACTIVE)
             pipe->feeder->input.state = IN_MUTED;
-        else {
-            pipe->feeder->input.state = IN_RDY;
-            queue_io(&pipe->feeder->rd);
-        }
 
         queue_io(&pipe->wr);
     } else
@@ -131,7 +133,7 @@ void init_pipe(int r_fd, int w_fd, struct pipe *feeder, struct pipe *pipe)
 
     pipe->feeder = feeder;
 
-    pipe->input.state = IN_RDY;
+    pipe->input.state = IN_PASSIVE;
 
     pipe->output.q = NULL;
     pipe->output.q_chain = &pipe->output.q;
@@ -143,6 +145,7 @@ void want_data(struct pipe *pipe,
     pipe->input.buf = buf;
     pipe->input.p = p;
     pipe->input.cb = cb;
+    pipe->input.state = IN_ACTIVE;
 
     queue_io(&pipe->rd);
 }
