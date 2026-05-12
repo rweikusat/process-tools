@@ -13,7 +13,8 @@ struct buf;
 typedef void input_cb(struct buf *, void *);
 
 struct pipe {
-    struct io rd, wr, *feeder;
+    struct io rd, wr;
+    struct pipe *feeder;
 
     struct {
         struct buf *buf;
@@ -28,7 +29,7 @@ struct pipe {
 };
 
 /*  routines */
-void init_pipe(int r_fd, int w_fd, struct pipe *pipe);
+void init_pipe(int r_fd, int w_fd, struct pipe *feeder, struct pipe *pipe);
 
 void want_data(struct pipe *pipe,
                input_cb *cb, struct buf *buf, void *p);

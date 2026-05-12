@@ -3,7 +3,13 @@
 */
 
 /*  includes */
+#include <errno.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #include "bufs.h"
+#include "diag.h"
 #include "io_queue.h"
 #include "loggers.h"
 #include "pipe.h"
@@ -41,13 +47,13 @@ static int handle_input(int fd, struct io *io)
 
     if (nr) {
         buf->e = buf->s + nr;
-        pipe->input.cb(buf. pipe->input.p);
+        pipe->input.cb(buf, pipe->input.p);
     } else {
         close(pipe->rd.fd);
         pipe->input.state = IN_EOF;
 
         return_buf(buf);
-        pipe-?input.cb(NULL, pipe->input.p);
+        pipe->input.cb(NULL, pipe->input.p);
     }
 
     return 0;
@@ -67,13 +73,13 @@ static int handle_output(int fd, struct io *io)
 
     pipe = (void *)((char *)io - offsetof(struct pipe, wr));
 
-    if (pipe->feeder.input.state == IN_MUTED) {
-        pipe->feeder.input.state = IN_RDY;
-        queue_io(&pipe->feeder.rd);
+    if (pipe->feeder->input.state == IN_MUTED) {
+        pipe->feeder->input.state = IN_RDY;
+        queue_io(&pipe->feeder->rd);
     }
 
     buf = pipe->output.q;
-    nw = write(fd, bugf->s, buf->e - buf->s);
+    nw = write(fd, buf->s, buf->e - buf->s);
     if (nw == -1) {
         if (errno == EAGAIN) return POLLOUT;
         die("write");
@@ -90,24 +96,26 @@ static int handle_output(int fd, struct io *io)
     }
 
     if (pipe->output.q) {
-        if (pipe->feeder.input.state == IN_RDY)
+        if (pipe->feeder->input.state == IN_RDY)
             pipe->feeder->input.state = IN_MUTED;
 
         queue_io(&pipe->wr);
     } else
-        if (feeder->input.state == IN_EOF)
+        if (pipe->feeder->input.state == IN_EOF)
             close_wr_io(io);
 
     return 0;
 }
 
-void init_pipe(int r_fd, int w_fd, struct pipe *pipe)
+void init_pipe(int r_fd, int w_fd, struct pipe *feeder, struct pipe *pipe)
 {
     pipe->rd.fd = r_fd;
     pipe->rd.handler = handle_input;
 
     pipe->wr.fd = w_fd;
-    pipe->wr.handler = handle_ouput;
+    pipe->wr.handler = handle_output;
+
+    pipe->feeder = feeder;
 
     pipe->input.state = IN_RDY;
 
