@@ -53,6 +53,12 @@ static int handle_input(int fd, struct io *io)
     return 0;
 }
 
+static void close_wr_io(struct io *io)
+{
+    shutdown(io->fd, SHUT_WR);
+    close(io->fd);
+}
+
 static int handle_output(int fd, struct io *io)
 {
     struct pipe *pipe;
@@ -88,7 +94,9 @@ static int handle_output(int fd, struct io *io)
             pipe->feeder->input.state = IN_MUTED;
 
         queue_io(&pipe->wr);
-    }
+    } else
+        if (feeder->input.state == IN_EOF)
+            close_wr_io(io);
 
     return 0;
 }
@@ -124,4 +132,10 @@ void send_data(struct pipe *pipe, struct buf *buf)
     buf->p = NULL;
     *pipe->output.q_chain = buf;
     pipe->output.q_chain = &buf->p;
+}
+
+void all_sent(struct pipe *pipe)
+{
+    if (pipe->output.q) return;
+    close_wr_io(&pipe->wr);
 }
