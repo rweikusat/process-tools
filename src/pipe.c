@@ -44,7 +44,7 @@ static int handle_input(int fd, struct io *io)
         die("read");
     }
 
-    info("%s: read %zd from $d", __func__, fd, nr);
+    info("%s: read %zd from %d", __func__, nr, fd);
 
     if (nr) {
         buf->e = buf->s + nr;
@@ -86,7 +86,7 @@ static int handle_output(int fd, struct io *io)
         die("write");
     }
 
-    info("%s: wrote %zd to %d", __func__, fd, nw);
+    info("%s: wrote %zd to %d", __func__, nw, fd);
 
     buf->s += nw;
     if (buf->s == buf->e) {
