@@ -32,8 +32,8 @@ static int handle_input(int fd, struct io *io)
 
     pipe = (void *)((char *)io - offsetof(struct pipe, rd));
     if (pipe->input.state == IN_MUTED) return 0;
-    buf = pipe->input.buf;
 
+    buf = pipe->input.buf;
     nr = read(fd, buf->s, buf_data_sz);
     if (nr == -1) {
         if (errno == EAGAIN) {
@@ -43,6 +43,7 @@ static int handle_input(int fd, struct io *io)
 
         die("read");
     }
+    pipe->input.state = IN_RDY;
 
     info("%s: read %zd from %d", __func__, nr, fd);
 
@@ -79,8 +80,6 @@ static int handle_output(int fd, struct io *io)
     pipe = (void *)((char *)io - offsetof(struct pipe, wr));
 
     if (pipe->feeder->input.state == IN_MUTED) {
-        pipe->feeder->input.state = IN_RDY;
-        queue_io(&pipe->feeder->rd);
     }
 
     buf = pipe->output.q;
@@ -103,6 +102,10 @@ static int handle_output(int fd, struct io *io)
     if (pipe->output.q) {
         if (pipe->feeder->input.state == IN_RDY)
             pipe->feeder->input.state = IN_MUTED;
+        else {
+            pipe->feeder->input.state = IN_RDY;
+            queue_io(&pipe->feeder->rd);
+        }
 
         queue_io(&pipe->wr);
     } else
