@@ -107,6 +107,5 @@ void run_io_loop(void)
             cur = next;
         }
         --quota;
-
     }
 }
