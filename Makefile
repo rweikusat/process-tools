@@ -110,7 +110,7 @@ $(addprefix bin/, $(PLAIN_PRGS)) : bin/% : tmp/%.o
 $(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 
 bin/syslogging: LIBS=-lpthread
-bin/relay: tmp/bufs.o
+bin/relay: tmp/bufs.o tmp/pipe.o tmp/io_queue.o
 bin/u-listen bin/u-talk: tmp/fill_sun.o
 
 include $(DEPS)
