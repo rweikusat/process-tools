@@ -76,7 +76,7 @@ void run_io_loop(void)
     int rc;
 
     n_p = 0;
-    quota = Q_QUOTA;
+    quota = Q_QUOTA;            /* make the compiler happy */
     while (io_q.first || n_p) {
         cur = io_q.first;
         if (cur) {
