@@ -52,7 +52,7 @@ static void do_poll(struct pollfd *p_fds, struct io **p_ios, unsigned *n_p,
     pos = 0;
     do {
         if (p_fds[pos].revents) {
-            info("%s: %02x for %d",
+            info("%s: 0x%02x for %d",
                  __func__, p_fds[pos].revents, p_fds[pos].fd);
 
             queue_io(p_ios[pos]);
