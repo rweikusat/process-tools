@@ -7,6 +7,7 @@
 
 #include "bufs.h"
 #include "diag.h"
+#include "loggers.h"
 
 /*  variables */
 size_t buf_data_sz;
@@ -78,10 +79,11 @@ void init_buffers(size_t buf_sz, size_t max_bufs)
     buf_mem_e = buf_mem + need;
 }
 
-void want_buf(want_buf_cb *cb, void *p)
+void want_buf(struct pipe *pipe, want_buf_cb *cb, void *p)
 {
+    debug("%s: pipe %p", __func__, pipe);
+
     wanters[n_wanters].cb = cb;
     wanters[n_wanters].p = p;
-
     ++n_wanters;
 }

@@ -8,6 +8,8 @@
 #include <stddef.h>
 
 /*  types */
+struct pipe;
+
 struct buf {
     struct buf *p;
     char *s, *e;
@@ -27,6 +29,6 @@ static inline void reset_buf(struct buf *buf)
 struct buf *get_buf(void);
 void return_buf(struct buf *buf);
 void init_buffers(size_t buf_sz, size_t max_bufs);
-void want_buf(want_buf_cb *cb, void *p);
+void want_buf(struct pipe *pipe, want_buf_cb *cb, void *p);
 
 #endif

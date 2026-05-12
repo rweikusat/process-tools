@@ -104,7 +104,7 @@ static void handle_input(struct buf *buf, void *p)
 
     buf = get_buf();
     if (!buf) {
-        want_buf(got_buf, me);
+        want_buf(me, got_buf, me);
         return;
     }
 

@@ -143,6 +143,8 @@ void init_pipe(int r_fd, int w_fd, struct pipe *feeder, struct pipe *pipe)
 void want_data(struct pipe *pipe,
                input_cb *cb, struct buf *buf, void *p)
 {
+    debug("%s: pipe %p", __func__, pipe);
+
     pipe->input.buf = buf;
     pipe->input.p = p;
     pipe->input.cb = cb;
