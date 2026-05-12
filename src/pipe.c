@@ -50,8 +50,10 @@ static int handle_input(int fd, struct io *io)
         buf->e = buf->s + nr;
         pipe->input.cb(buf, pipe->input.p);
     } else {
-        close(pipe->rd.fd);
+        close(fd);
         pipe->input.state = IN_EOF;
+
+        info("%s: closed %d", __func__, fd);
 
         return_buf(buf);
         pipe->input.cb(NULL, pipe->input.p);
@@ -64,6 +66,8 @@ static void close_wr_io(struct io *io)
 {
     shutdown(io->fd, SHUT_WR);
     close(io->fd);
+
+    info("%s: closed %d", __func__, io->fd);
 }
 
 static int handle_output(int fd, struct io *io)
