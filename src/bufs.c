@@ -44,13 +44,19 @@ struct buf *get_buf(void)
 
 void return_buf(struct buf *buf)
 {
+    want_buf_cb *cb;
+    void *p;
+
     buf->s = (void *)(buf + 1);
 
     if (n_wanters) {
-        wanters[0].cb(buf, wanters[0].p);
+        cb = wanters[0].cb;
+        p = wanters[0].p;
 
         --n_wanters;
         if (n_wanters) wanters[0] = wanters[1];
+
+        cb(buf, p);
         return;
     }
 
