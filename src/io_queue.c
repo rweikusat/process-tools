@@ -4,6 +4,7 @@
 
 /*  includes */
 #include <errno.h>
+#include <sys/poll.h>
 
 #include "diag.h"
 #include "io_queue.h"
@@ -30,7 +31,7 @@ void queue_io(struct io *io)
     io_q.chain = &io->p;
 }
 
-static void do_poll(struct pollfd *p_fds, struct io *p_ios, unsigned *n_p,
+static void do_poll(struct pollfd *p_fds, struct io **p_ios, unsigned *n_p,
                     int tmout)
 {
     unsigned pos, n;
@@ -75,6 +76,7 @@ void run_io_loop(void)
     int rc;
 
     n_p = 0;
+    quota = Q_QUOTA;
     while (io_q.first || n_p) {
         cur = io_q.first;
         if (cur) {
