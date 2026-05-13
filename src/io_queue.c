@@ -76,10 +76,14 @@ void run_io_loop(void)
     int rc;
 
     n_p = 0;
-    while (io_q.first || n_p) {
-        cur = io_q.first;
-        quota = Q_QUOTA;
+    cur = io_q.first;
+    while (cur || n_p) {
+        if (n_p) {
+            do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
+            if (!cur) cur = io_q.first;
+        }
 
+        quota = Q_QUOTA;
         while (cur && quota) {
             io_q.first = NULL;
             io_q.chain = &io_q.first;
@@ -102,9 +106,7 @@ void run_io_loop(void)
             } while (cur);
 
             --quota;
-            if (quota) cur = io_q.first;
+            cur = io_q.first;
         }
-
-        if (n_p) do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
     }
 }
