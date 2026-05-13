@@ -76,36 +76,35 @@ void run_io_loop(void)
     int rc;
 
     n_p = 0;
-    quota = Q_QUOTA;            /* make the compiler happy */
     while (io_q.first || n_p) {
         cur = io_q.first;
-        if (cur) {
+        quota = Q_QUOTA;
+
+        while (cur && quota) {
             io_q.first = NULL;
             io_q.chain = &io_q.first;
+
+            debug("%s: running queue", __func__);
+
+            do  {
+                next = cur->p;
+
+                rc = cur->handler(cur->fd, cur);
+                if (rc) {
+                    p_fds[n_p].fd = cur->fd;
+                    p_fds[n_p].events = rc;
+                    p_ios[n_p] = cur;
+
+                    ++n_p;
+                }
+
+                cur = next;
+            } while (cur);
+
+            --quota;
+            if (quota) cur = io_q.first;
         }
 
-        if (n_p && !(cur && quota)) {
-            do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
-
-            quota = Q_QUOTA;
-            if (!cur) continue;
-        }
-
-        debug("%s: running queue", __func__);
-        while (cur) {
-            next = cur->p;
-
-            rc = cur->handler(cur->fd, cur);
-            if (rc) {
-                p_fds[n_p].fd = cur->fd;
-                p_fds[n_p].events = rc;
-                p_ios[n_p] = cur;
-
-                ++n_p;
-            }
-
-            cur = next;
-        }
-        --quota;
+        if (n_p) do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
     }
 }
