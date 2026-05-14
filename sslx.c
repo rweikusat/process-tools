@@ -2,8 +2,10 @@
   openssl test program
 */
 
-#include <openssl/ssl.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+#include <openssl/ssl.h>
 
 int main(void)
 {
@@ -23,6 +25,12 @@ int main(void)
     rbio_s = BIO_new(BIO_s_mem());
     wbio_s = BIO_new(BIO_s_mem());
     SSL_set_bio(ssl_s, rbio_s, wbio_s);
+    rc = SSL_use_certificate_file(ssl_s, "cert", SSL_FILETYPE_PEM);
+    if (rc == 1) rc = SSL_use_PrivateKey_file(ssl_s, "cert", SSL_FILETYPE_PEM);
+    if (rc != 1) {
+        fputs("failed to load cert or key\n", stderr);
+        exit(1);
+    }
 
     return 0;
 }
