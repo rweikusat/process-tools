@@ -8,11 +8,17 @@ int main(void)
 {
     SSL_CTX *ctx;
     SSL *ssl;
-    BIO *bio;
+    BIO *rbio, *wbio;
+    int rc, rc2;
 
     ctx = SSL_CTX_new(TLS_client_method());
     ssl = SSL_new(ctx);
-    bio = BIO_new(BIO_s_mem());
+    rbio = BIO_new(BIO_s_mem());
+    wbio = BIO_new(BIO_s_mem());
+    SSL_set_bio(ssl, rbio, wbio);
+
+    rc = SSL_connect(ssl);
+    rc2 = SSL_get_error(ssl, rc);
 
     return 0;
 }
