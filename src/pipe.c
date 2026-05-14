@@ -106,6 +106,13 @@ static int handle_output(int fd, struct io *io)
     }
 
     if (pipe->output.q) {
+        /*
+          If there's a queue, the sender has moved into the past
+          relative to the receiver. To ensure that it catches up with
+          the present again despite a continuous stream of input,
+          write data at twice the rate it's being read until the queue
+          is empty again.
+        */
         if (!unmuted && pipe->feeder->input.state == IN_ACTIVE)
             pipe->feeder->input.state = IN_MUTED;
 
