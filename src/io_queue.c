@@ -80,7 +80,7 @@ void run_io_loop(void)
     while (cur || n_p) {
         if (n_p) {
             do_poll(p_fds, p_ios, &n_p, cur ? 0 : -1);
-            if (!cur) cur = io_q.first;
+            cur = io_q.first;
         }
 
         quota = Q_QUOTA;
