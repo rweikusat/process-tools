@@ -84,7 +84,7 @@ void run_io_loop(void)
         }
 
         quota = Q_QUOTA;
-        while (cur && quota) {
+        do {
             io_q.first = NULL;
             io_q.chain = &io_q.first;
 
@@ -107,6 +107,6 @@ void run_io_loop(void)
 
             --quota;
             cur = io_q.first;
-        }
+        } while (cur && quota);
     }
 }
