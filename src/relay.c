@@ -71,8 +71,8 @@ static void usage(void)
     msg("   program wil allocate. Default is 16.");
     msg("   The -v option can be used to request printing of informational messages.");
     msg("   At level 1, messages about bytes read and written will be prinred. On");
-    msg("   level 2, an additional message will be printed before each I/O task");
-    msg("   queue run.");
+    msg("   level 2, additional messages about registration of callbacks and queue");
+    msg("   runs will be printed.");
 
     exit(0);
 }
