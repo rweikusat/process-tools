@@ -9,14 +9,14 @@
 
 struct data {
     char *d;
-    size_t len;
+    int len;
 };
 
 static void assert_want_read(SSL *ssl, int ret)
 {
     int ret2;
 
-    ret2 = SS_get_error(ssl, ret);
+    ret2 = SSL_get_error(ssl, ret);
     if (ret2 == SSL_ERROR_WANT_READ) return;
 
     fprintf(stderr, "unexpected SSL error %d\n", ret2);
@@ -47,7 +47,7 @@ int main(void)
     SSL *ssl_c, *ssl_s;
     BIO *rbio_c, *wbio_c, *rbio_s, *wbio_s;
     struct data data;
-    int rc, rc2;
+    int rc;
 
     ctx_c = SSL_CTX_new(TLS_client_method());
     ssl_c = SSL_new(ctx_c);
@@ -68,7 +68,7 @@ int main(void)
     }
 
     while (rc = SSL_connect(ssl_c), rc == -1) {
-        assert_want_read(ssl_c, ret);
+        assert_want_read(ssl_c, rc);
         get_data(wbio_c, &data);
     }
 
