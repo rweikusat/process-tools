@@ -12,6 +12,8 @@ struct data {
     int len;
 };
 
+static char the_message[] = "This is the message!";
+
 static void assert_want_read(SSL *ssl, int ret)
 {
     int ret2;
@@ -92,11 +94,28 @@ int main(void)
         put_data(&data, rbio_c);
     }
 
+    if (rc_c != 1) {
+        fputs("client handshake failed\n", stderr);
+        exit(1);
+    }
+
     if (rc_s == -1) {
         get_data(wbio_c, &data);
         put_data(&data, rbio_s);
         rc_s = SSL_accept(ssl_s);
     }
+    if (rc_s != 1) {
+        fputs("server handshake failed\n", stderr);
+        exit(1);
+    }
+
+    rc_c = SSL_write(ssl_c, the_message, sizeof(the_message) - 1);
+    if (rc_c != sizeof(the_message) - 1) {
+        fprintf(stderr, "unexpected write ret %d\n", rc_c);
+        exit(1);
+    }
+
+    get_data(wbio_c, &data);
 
     return 0;
 }
