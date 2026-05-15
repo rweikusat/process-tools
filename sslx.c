@@ -41,6 +41,19 @@ static void get_data(BIO *bio, struct data *data)
     }
 }
 
+static void put_data(struct data *data, BIO *bio)
+{
+    int nw;
+
+    nw = BIO_write(bio, data->d, data->len);
+    if (nw != data->len) {
+        fprintf(stderr, "unexpected BIO_write ret %d\n", nw);
+        exit(1);
+    }
+
+    free(data->d);
+}
+
 int main(void)
 {
     SSL_CTX *ctx_c, *ctx_s;
@@ -70,6 +83,7 @@ int main(void)
     while (rc = SSL_connect(ssl_c), rc == -1) {
         assert_want_read(ssl_c, rc);
         get_data(wbio_c, &data);
+        put_data(&data, rbio_s);
     }
 
     return 0;
