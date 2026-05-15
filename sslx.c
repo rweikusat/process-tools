@@ -27,7 +27,7 @@ static void get_data(BIO *bio, struct data *data)
 {
     int nr;
 
-    data->len = BIO_wpending(bio);
+    data->len = BIO_pending(bio);
     if (!data->len) {
         fputs("no data in bio\n", stderr);
         exit(1);
