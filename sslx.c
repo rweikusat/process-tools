@@ -83,7 +83,13 @@ int main(void)
     while (rc = SSL_connect(ssl_c), rc == -1) {
         assert_want_read(ssl_c, rc);
         get_data(wbio_c, &data);
+
         put_data(&data, rbio_s);
+        rc = SSL_accept(ssl_s);
+        if (rc != 1) assert_want_read(ssl_s, rc);
+        get_data(wbio_s, &data);
+
+        put_data(&data, rbio_c);
     }
 
     return 0;
