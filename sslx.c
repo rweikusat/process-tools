@@ -7,11 +7,46 @@
 
 #include <openssl/ssl.h>
 
+struct data {
+    char *d;
+    size_t len;
+};
+
+static void assert_want_read(SSL *ssl, int ret)
+{
+    int ret2;
+
+    ret2 = SS_get_error(ssl, ret);
+    if (ret2 == SSL_ERROR_WANT_READ) return;
+
+    fprintf(stderr, "unexpected SSL error %d\n", ret2);
+    exit(1);
+}
+
+static void get_data(BIO *bio, struct data *data)
+{
+    int nr;
+
+    data->len = BIO_wpending(bio);
+    if (!data->len) {
+        fputs("no data in bio\n", stderr);
+        exit(1);
+    }
+
+    data->d = malloc(data->len);
+    nr = BIO_read(bio, data->d, data->len);
+    if (nr != data->len) {
+        fprintf(stderr, "unexpected BIO_read ret %d\n", nr);
+        exit(1);
+    }
+}
+
 int main(void)
 {
     SSL_CTX *ctx_c, *ctx_s;
     SSL *ssl_c, *ssl_s;
     BIO *rbio_c, *wbio_c, *rbio_s, *wbio_s;
+    struct data data;
     int rc, rc2;
 
     ctx_c = SSL_CTX_new(TLS_client_method());
@@ -30,6 +65,11 @@ int main(void)
     if (rc != 1) {
         fputs("failed to load cert or key\n", stderr);
         exit(1);
+    }
+
+    while (rc = SSL_connect(ssl_c), rc == -1) {
+        assert_want_read(ssl_c, ret);
+        get_data(wbio_c, &data);
     }
 
     return 0;
