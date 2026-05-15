@@ -62,6 +62,7 @@ int main(void)
     SSL *ssl_c, *ssl_s;
     BIO *rbio_c, *wbio_c, *rbio_s, *wbio_s;
     struct data data;
+    char recvd_msg[64];
     int rc_c, rc_s;
 
     ctx_c = SSL_CTX_new(TLS_client_method());
@@ -116,6 +117,19 @@ int main(void)
     }
 
     get_data(wbio_c, &data);
+    put_data(&data, rbio_s);
+
+    rc_s = SSL_read(ssl_s, recvd_msg, sizeof(recvd_msg));
+    if (rc_s != sizeof(the_message) - 1) {
+        fprintf(stderr, "unexpected read ret %d\n", rc_s);
+        exit(1);
+    }
+
+    recvd_msg[rc_s] = 0;
+    if (strcmp(the_message, recvd_msg) != 0) {
+        fputs("incorrect data recvd\n", stderr);
+        exit(1);
+    }
 
     return 0;
 }
