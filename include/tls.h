@@ -16,7 +16,7 @@
 struct tls_state {
     SSL_CTX *ctx;
     SSL *ssl;
-    BIO *rbio, wbio;
+    BIO *rbio, *wbio;
     struct pipe *me, *other;
     void (*start)(struct tls_state *);
 };
