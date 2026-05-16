@@ -40,7 +40,7 @@ struct str {
 
 struct params {
     size_t buf_sz, max_bufs;
-    int verbosity;
+    int d_level;
 };
 
 /*  prototypes */
@@ -59,7 +59,7 @@ static struct pipe pipes[2];
 /**  misc */
 static void usage(void)
 {
-    msg("Usage: relay [-b <bufsize>] [-m <maxbuf>] [-v <verbosity>] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
+    msg("Usage: relay [-b <bufsize>] [-d <level>] [-m <maxbuf>] <fd0>[,<fdw0>] <fd1>[,<fdw1>]");
     msg("   Relay data between two file descriptors or pairs of file descriptors.");
     msg("   Data read from <fd0> will be written to <fd1> and vice versa. If an");
     msg("   optional for-write file descriptor (<fdwN>) was specified as well,");
@@ -67,12 +67,12 @@ static void usage(void)
     msg("   data.");
     msg("   The -b option can be used to specifiy an non-default input buffer");
     msg("   size. Default is 4096 bytes.");
-    msg("   The -m option enables changing the maximum number of buffers the");
-    msg("   program wil allocate. Default is 16.");
-    msg("   The -v option can be used to request printing of informational messages.");
+    msg("   The -d option can be used to request printing of informational messages.");
     msg("   At level 1, messages about bytes read and written will be prinred. On");
     msg("   level 2, additional messages about registration of callbacks and queue");
     msg("   runs will be printed.");
+    msg("   The -m option enables changing the maximum number of buffers the");
+    msg("   program wil allocate. Default is 16.");
 
     exit(0);
 }
@@ -135,18 +135,18 @@ static void process_opts(int n_args, char **argv, struct params *params)
 {
     int c;
 
-    while (c = getopt(n_args, argv, "+b:m:v:"), c != -1)
+    while (c = getopt(n_args, argv, "+b:d:m:"), c != -1)
         switch (c) {
         case 'b':
             params->buf_sz = atoi(optarg);
             break;
 
-        case 'm':
-            params->max_bufs = atoi(optarg);
+        case 'd':
+            params->d_level = atoi(optarg);
             break;
 
-        case 'v':
-            params->verbosity = atoi(optarg);
+        case 'm':
+            params->max_bufs = atoi(optarg);
             break;
 
         default:
@@ -226,7 +226,7 @@ static void process_args(int argc, char **argv)
 
     params.buf_sz = DEF_BUF_SZ;
     params.max_bufs = DEF_MAX_BUFS;
-    params.verbosity = 0;
+    params.d_level = D_QUIET;
 
     process_opts_env(&params);
     process_opts(argc, argv, &params);
@@ -242,8 +242,8 @@ static void process_args(int argc, char **argv)
         exit(1);
     }
 
-    if (params.verbosity > D_QUIET) loggers[D_INFO - 1] = msg;
-    if (params.verbosity > D_INFO) loggers[D_DEBUG - 1] = msg;
+    if (params.d_level > D_QUIET) loggers[D_INFO - 1] = msg;
+    if (params.d_level > D_INFO) loggers[D_DEBUG - 1] = msg;
 
     argv += optind;
     if (!*argv || !argv[1] || argv[2])
