@@ -16,12 +16,13 @@
 #define NO_VERIFY	"SSL_NO_VERIFY"
 
 /*  routines */
-static void log_ssl_error(char const *s, size_t len, void *p)
+static int log_ssl_error(char const *s, size_t len, void *p)
 {
     (void)len;
     (void)p;
 
     msg("%s", s);
+    return 1;
 }
 
 static void ssl_error(void)
@@ -29,7 +30,7 @@ static void ssl_error(void)
     ERR_print_errors_cb(log_ssl_error, NULL);
 }
 
-static int my_bio_write_ex(BIO *b, void const *d, size_t len, size_t *nw)
+static int my_bio_write_ex(BIO *b, char const *d, size_t len, size_t *nw)
 {
     struct buf *buf;
     size_t have;
@@ -44,7 +45,7 @@ static int my_bio_write_ex(BIO *b, void const *d, size_t len, size_t *nw)
     return 1;
 }
 
-static int my_bio_read_ex(BIO *b, void *d, size_t want, size_t *nr)
+static int my_bio_read_ex(BIO *b, char *d, size_t want, size_t *nr)
 {
     struct buf *buf;
     size_t have;
@@ -59,14 +60,14 @@ static int my_bio_read_ex(BIO *b, void *d, size_t want, size_t *nr)
     return 1;
 }
 
-static void my_bio_method(void)
+static BIO_METHOD *my_bio_method(void)
 {
     BIO_METHOD *meth;
 
-    meth = BIO_METH_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK,
+    meth = BIO_meth_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK,
                         "relay_bio");
-    BIO_METH_set_write_ex(meth, my_bio_write_ex);
-    BIO_METH_set_read_ex(meth, my_bio_read_ex);
+    BIO_meth_set_write_ex(meth, my_bio_write_ex);
+    BIO_meth_set_read_ex(meth, my_bio_read_ex);
 
     return meth;
 }
@@ -75,6 +76,9 @@ static void shared_tls_init(struct pipe *me, struct pipe *other,
                             struct tls_state *tls_state)
 {
     BIO_METHOD *meth;
+
+    tls_state->me = me;
+    tls_state->other = other;
 
     meth = my_bio_method();
     tls_state->rbio = BIO_new(meth);
@@ -90,7 +94,7 @@ void tls_client_init(struct pipe *me, struct pipe *other,
     SSL_CTX *ctx;
     int rc;
 
-    ctx = tls_state->ctx = SSL_CTX_NEW(TLS_client_method());
+    ctx = tls_state->ctx = SSL_CTX_new(TLS_client_method());
     if (ctx) ssl_error();
 
     if (ca_path) rc = SSL_CTX_load_verify_dir(ctx, ca_path);
