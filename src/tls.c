@@ -4,9 +4,11 @@
 
 /*  includes */
 #include <stdlib.h>
+#include <string.h>
 
 #include <openssl/err.h>
 
+#include "bufs.h"
 #include "diag.h"
 #include "tls.h"
 
@@ -25,6 +27,48 @@ static void log_ssl_error(char const *s, size_t len, void *p)
 static void ssl_error(void)
 {
     ERR_print_errors_cb(log_ssl_error, NULL);
+}
+
+static int my_bio_write_ex(BIO *b, void const *d, size_t len, size_t *nw)
+{
+    struct buf *buf;
+    size_t have;
+
+    buf = BIO_get_data(b);
+    have = buf_data_sz - (buf->e - buf->s);
+    if (len > have) len = have;
+    memcpy(buf->e, d, len);
+    buf->e += len;
+    *nw = len;
+
+    return 1;
+}
+
+static int my_bio_read_ex(BIO *b, void *d, size_t want, size_t *nr)
+{
+    struct buf *buf;
+    size_t have;
+
+    buf = BIO_get_data(b);
+    have = buf->e - buf->s;
+    if (want > have) want = have;
+    memcpy(d, buf->s, want);
+    buf->s += want;
+    *nr = want;
+
+    return 1;
+}
+
+static void my_bio_method(void)
+{
+    BIO_METHOD *meth;
+
+    meth = BIO_METH_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK,
+                        "relay_bio");
+    BIO_METH_set_write_ex(meth, my_bio_write_ex);
+    BIO_METH_set_read_ex(meth, my_bio_read_ex);
+
+    return meth;
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
