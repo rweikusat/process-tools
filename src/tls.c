@@ -33,11 +33,11 @@ static void ssl_error(void)
 static int my_bio_write_ex(BIO *b, char const *d, size_t len, size_t *nw)
 {
     struct buf *buf;
-    size_t have;
+    size_t avail;
 
     buf = BIO_get_data(b);
-    have = buf_data_sz - (buf->e - buf->s);
-    if (len > have) len = have;
+    avail = buf_data_sz - (buf->e - buf->s);
+    if (len > avail) len = avail;
     memcpy(buf->e, d, len);
     buf->e += len;
     *nw = len;
