@@ -27,6 +27,18 @@ static void ssl_error(void)
     ERR_print_errors_cb(log_ssl_error, NULL);
 }
 
+static void shared_tls_init(struct pipe *me, struct pipe *other,
+                            struct tls_state *tls_state)
+{
+    BIO_METHOD *meth;
+
+    meth = my_bio_method();
+    tls_state->rbio = BIO_new(meth);
+    tls_state->wbio = BIO_new(meth);
+
+    SSL_set_bio(tls_state->ssl, tls_state->rbio, tls_state->wbio);
+}
+
 void tls_client_init(struct pipe *me, struct pipe *other,
                      char *ca_path, char *ca_file,
                      struct tls_state *tls_state)
