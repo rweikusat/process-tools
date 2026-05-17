@@ -35,7 +35,13 @@ static int my_bio_write_ex(BIO *b, char const *d, size_t len, size_t *nw)
     struct buf *buf;
     size_t avail;
 
+    BIO_clear_retry_flags(b);
     buf = BIO_get_data(b);
+    if (!buf) {
+        BIO_set_retry_write(b);
+        return 0;
+    }
+
     avail = buf_data_sz - (buf->e - buf->s);
     if (len > avail) len = avail;
     memcpy(buf->e, d, len);
@@ -51,7 +57,6 @@ static int my_bio_read_ex(BIO *b, char *d, size_t want, size_t *nr)
     size_t have;
 
     BIO_clear_retry_flags(b);
-
     buf = BIO_get_data(b);
     if (!buf) {
         BIO_set_retry_read(b);
@@ -119,6 +124,8 @@ static void cont_accept(struct buf *buf, void *p)
 
     if (buf->e > buf->s) {
         send_data(tls_state->me, buf);
+        BIUO_set_data(tls_state->wbio, NULL);
+
         buf = get_buf();
     }
 
