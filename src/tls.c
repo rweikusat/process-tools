@@ -99,6 +99,34 @@ static BIO_METHOD *my_bio_method(void)
     return meth;
 }
 
+static void cont_accept(struct buf *buf, void *p)
+{
+    struct tls_state *tls_state;
+    int rc;
+
+    tls_state = p;
+
+    BIO_set_data(tls_state->rbio, buf);
+
+    buf = get_buf();
+    BIO_set_data(tls_state->wbio, buf);
+
+    rc = SSL_accept(tls_state->ssl);
+    if (rc == 0 ||
+        (rc == -1
+         && ssl_get_error(tls_state->ssl, rc) != SSL_ERROR_WANT_READ))
+        ssl_error();
+
+    if (buf->e > buf->s) {
+        send_data(tls_state->me, buf);
+        buf = get_buf();
+    }
+
+    want_data(tls_state->me,
+              rc == -1 ? cont_accept : ssl_read,
+              buf, tls_state);
+}
+
 static void tls_client_start(struct tls_state *tls_state)
 {
     struct buf *buf;
@@ -106,6 +134,7 @@ static void tls_client_start(struct tls_state *tls_state)
 
     buf = get_buf();
     BIO_set_data(tls_state->wbio, buf);
+
     rc = SSL_accept(tls_state->ssl);
     if (!(rc == -1
           && ssl_get_error(tls_state->ssl, rc) == SSL_ERROR_WANT_READ))
