@@ -50,12 +50,24 @@ static int my_bio_read_ex(BIO *b, char *d, size_t want, size_t *nr)
     struct buf *buf;
     size_t have;
 
+    BIO_clear_retry_flags(b);
+
     buf = BIO_get_data(b);
+    if (!buf) {
+        BIO_set_retry_read(b);
+        return 0;
+    }
+
     have = buf->e - buf->s;
     if (want > have) want = have;
     memcpy(d, buf->s, want);
-    buf->s += want;
     *nr = want;
+
+    buf->s += want;
+    if (buf->s == buf->e) {
+        BIO_set_data(b ,NULL);
+        return_buf(buf);
+    }
 
     return 1;
 }
@@ -85,6 +97,16 @@ static BIO_METHOD *my_bio_method(void)
     BIO_meth_set_ctrl(meth, my_bio_ctrl);
 
     return meth;
+}
+
+static void tls_client_start(struct tls_state *tls_state)
+{
+    struct buf *buf;
+    int rc;
+
+    buf = get_buf();
+    BIO_set_data(tls_state->wbio, buf);
+    rc = SSL_accept(tls_state->ssl);
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
@@ -124,5 +146,6 @@ void tls_client_init(struct pipe *me, struct pipe *other,
     if (!tls_state->ssl) ssl_error();
     if (!getenv(NO_VERIFY)) SSL_set_verify(tls_state->ssl, SSL_VERIFY_PEER, NULL);
 
+    tls_state->start = tls_client_start;
     shared_tls_init(me, other, tls_state);
 }
