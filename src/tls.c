@@ -65,8 +65,8 @@ static long my_bio_ctrl(BIO *b, int cmd, long larg, void *parg)
     struct buf *buf;
 
     if (cmd != BIO_CTRL_PENDING) {
-        msg("%s: BIO %p, cmd %d, larg %ld, parg %p,
-        __func__, bio, cmd, larg, parg);
+        msg("%s: BIO %p, cmd %d, larg %ld, parg %p",
+        __func__, b, cmd, larg, parg);
         return 0;
     }
 
