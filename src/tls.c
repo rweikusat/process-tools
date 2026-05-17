@@ -128,6 +128,58 @@ static BIO_METHOD *my_bio_method(void)
     return meth;
 }
 
+static void run_ssl_op_wr(struct ssl_op_state *st, struct buf *buf)
+{
+    struct tls_state *tls_state;
+    BIO *wbio;
+    SSL *ssl;
+    int rc;
+
+    tls_state = st->tls_state;
+    ssl = tls_state->ssl;
+    wbio = tls_state->wbio;
+
+    if (buf) BIO_set_data(wbio, buf);
+    rc = st->ssl_op.fn(tls_state, st->ssl_op.p);
+    while (rc == -1
+           && ssl_get_error(ssl, rc) == SSL_ERROR_WANT_WRITE) {
+        if (buf) send_data(tls_state->me, buf);
+
+        buf = get_buf();
+        if (!buf) {
+            want_buf(restart_run_wr, st);
+            return;
+        }
+
+        BIO_set_data(wbio, buf);
+        rc = st->ssl_op.fn(tls_state, st->ssl_op.p);
+    }
+
+    if (rc == 0) ssl_error();
+
+    if (buf) {
+        BIO_set_data(wbio, NULL);
+
+        if (buf->e > buf->s) {
+            send_data(tls_state->me, buf);
+            buf = NULL;
+        }
+    }
+
+    if (rc == -1)
+        switch (ssl_get_error(ssl, rc)) {
+        case SSL_ERROR_WANT_READ:
+            run_ssl_op_rd(st, buf);
+            return;
+
+        default:
+            ssl_error();
+        }
+
+    st->cont.fn(tls_state, st->cont.p);
+}
+
+
 static void start_ssl_op(struct tls_state *tls_state,
                          ssl_op_fn *ssl_op, void *ssl_op_p,
                          cont_fn *cont, void *cont_p)
@@ -143,7 +195,7 @@ static void start_ssl_op(struct tls_state *tls_state,
     st->cont.fn = cont;
     st->cont.p = cont-p;
 
-    run_ssl_op(st);
+    run_ssl_op_wr(st, NULL);
 }
 
 static void cont_accept(struct buf *buf, void *p)
