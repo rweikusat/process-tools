@@ -60,6 +60,13 @@ static int my_bio_read_ex(BIO *b, char *d, size_t want, size_t *nr)
     return 1;
 }
 
+static int my_bio_ctrl(BIO *b, int cmd, long larg, void *parg)
+{
+    msg("%s: BIO %p, cmd %d, larg %ld, parg %p,
+        __func__, bio, cmd, larg, parg);
+    return 0;
+}
+
 static BIO_METHOD *my_bio_method(void)
 {
     BIO_METHOD *meth;
@@ -68,6 +75,7 @@ static BIO_METHOD *my_bio_method(void)
                         "relay_bio");
     BIO_meth_set_write_ex(meth, my_bio_write_ex);
     BIO_meth_set_read_ex(meth, my_bio_read_ex);
+    BIO_meth_set_ctrl(meth, my_bio_ctrl);
 
     return meth;
 }
