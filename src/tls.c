@@ -107,6 +107,14 @@ static void tls_client_start(struct tls_state *tls_state)
     buf = get_buf();
     BIO_set_data(tls_state->wbio, buf);
     rc = SSL_accept(tls_state->ssl);
+    if (!(rc == -1
+          && ssl_get_error(tls_state->ssl, rc) == SSL_ERROR_WANT_READ))
+        ssl_error();
+
+    send_data(tls_state->me, buf);
+
+    buf = get_buf();
+    want_data(tls_state->me, cont_accept, buf, tls_state);
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
