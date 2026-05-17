@@ -60,11 +60,18 @@ static int my_bio_read_ex(BIO *b, char *d, size_t want, size_t *nr)
     return 1;
 }
 
-static int my_bio_ctrl(BIO *b, int cmd, long larg, void *parg)
+static long my_bio_ctrl(BIO *b, int cmd, long larg, void *parg)
 {
-    msg("%s: BIO %p, cmd %d, larg %ld, parg %p,
+    struct buf *buf;
+
+    if (cmd != BIO_CTRL_PENDING) {
+        msg("%s: BIO %p, cmd %d, larg %ld, parg %p,
         __func__, bio, cmd, larg, parg);
-    return 0;
+        return 0;
+    }
+
+    buf = BIO_get_data(b);
+    return buf->e - buf->s;
 }
 
 static BIO_METHOD *my_bio_method(void)
