@@ -15,6 +15,30 @@
 /*  macros */
 #define NO_VERIFY	"SSL_NO_VERIFY"
 
+/*  types */
+typedef int ssl_op_fn(struct tls_state *, void *);
+typedef void cont_fn(struct tls_state *, void *);
+
+struct ssl_op_state {
+    struct tls_state *tls_state;
+
+    struct {
+        ssl_op_fn *fn;
+        void *p;
+    } ssl_op;
+
+    struct {
+        cont_fn *fn;
+        void *p;
+    } cont;
+};
+
+/*  variables */
+struct {
+    struct ssl_op_state sts[2];
+    unsigned nxt;
+} ssl_op_states;
+
 /*  routines */
 static int log_ssl_error(char const *s, size_t len, void *p)
 {
@@ -102,6 +126,24 @@ static BIO_METHOD *my_bio_method(void)
     BIO_meth_set_ctrl(meth, my_bio_ctrl);
 
     return meth;
+}
+
+static void start_ssl_op(struct tls_state *tls_state,
+                         ssl_op_fn *ssl_op, void *ssl_op_p,
+                         cont_fn *cont, void *cont_p)
+{
+    struct ssl_op_state *st;
+
+    st = ssl_op_states.sts + ssl_op_states.nxt;
+    ssl_op_states.nxt ^= 1;
+
+    st->tls_state = tls_state;
+    st->ssl_op.fn = ssl_op;
+    st->ssl_op.p = ssl_op_p;
+    st->cont.fn = cont;
+    st->cont.p = cont-p;
+
+    run_ssl_op(st);
 }
 
 static void cont_accept(struct buf *buf, void *p)
