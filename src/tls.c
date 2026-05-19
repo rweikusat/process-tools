@@ -33,6 +33,11 @@ struct ssl_op_state {
     } cont;
 };
 
+/*  prototypes */
+static void start_ssl_op_rd(struct buf *, void *);
+static void start_ssl_op_wr(stuct buf *, void *);
+static void run_ssl_op_wr(struct buf *, void *)
+
 /*  variables */
 struct {
     struct ssl_op_state sts[2];
@@ -128,6 +133,30 @@ static BIO_METHOD *my_bio_method(void)
     return meth;
 }
 
+static void run_ssl_op_rd(struct buf *buf, void *p)
+{
+    struct ssl_op_state *st;
+
+    st = p;
+    BIO_set_data(st->tls_state.rbio, buf);
+    rc = st->ssl_op.fn(st->tls_state, st->ssl_op.p);
+
+    if (rc == -1) {
+        switch (ssl_get_errot(st->tls_state->ssl, rc)) {
+        case SSL_ERROR_WANT_READ:
+            start_ssl_op_rd(NULL, p);
+            return;
+
+        case SSL_ERROR_WANT_WRITE:
+            start_ssl_op_wr(NULL, p);
+            return;
+        }
+    }
+
+    if (rc <= 0) ssl_error();
+    st->cont.fn(st->tls_state, st->cont.p);
+}
+
 static void start_ssl_op_rd(struct buf *buf, void *p)
 {
     struct ssl_op_state *st;
@@ -198,6 +227,22 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
     st->cont.fn(tls_state, st->cont.p);
 }
 
+static void start_ssl_op_wr(struct buf *buf, void *p)
+{
+    struct ssl_op_state *st;
+    struct buf *buf;
+
+    if (!buf) {
+        buf = get_buf();
+        if (!buf) {
+            st = p;
+            want_buf(st->tls_state->me, start_ssl_op_wr, p);
+            return;
+        }
+    }
+
+    run_ssl_op_wr(buf, p);
+}
 
 static void start_ssl_op(struct tls_state *tls_state,
                          ssl_op_fn *ssl_op, void *ssl_op_p,
