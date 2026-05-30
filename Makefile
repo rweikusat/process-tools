@@ -112,7 +112,7 @@ $(foreach prg,$(HY_PRGS),$(eval $(call hy-prg-dep,$(prg))))
 bin/syslogging: LIBS=-lpthread
 
 bin/relay: LIBS=-lssl -lcrypto
-bin/relay: tmp/bufs.o tmp/pipe.o tmp/io_queue.o tmp/tls.o
+bin/relay: tmp/bufs.o tmp/pipe.o tmp/io_queue.o tmp/tls.o tmp/tasks.o
 
 bin/u-listen bin/u-talk: tmp/fill_sun.o
 
