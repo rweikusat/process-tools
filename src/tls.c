@@ -36,7 +36,9 @@ struct ssl_op_state {
 /*  prototypes */
 static void start_ssl_op_rd(struct buf *, void *);
 static void start_ssl_op_wr(stuct buf *, void *);
-static void run_ssl_op_wr(struct buf *, void *)
+static void run_ssl_op_wr(struct buf *, void *);
+
+static void start_read(struct tls_state *, void *);
 
 /*  variables */
 struct {
@@ -141,7 +143,7 @@ static void run_ssl_op_rd(struct buf *buf, void *p)
     BIO_set_data(st->tls_state.rbio, buf);
     rc = st->ssl_op.fn(st->tls_state, st->ssl_op.p);
 
-    if (rc == -1) {
+    if (rc <= 0) {
         switch (ssl_get_errot(st->tls_state->ssl, rc)) {
         case SSL_ERROR_WANT_READ:
             start_ssl_op_rd(NULL, p);
@@ -189,7 +191,7 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
 
     if (buf) BIO_set_data(wbio, buf);
     rc = st->ssl_op.fn(tls_state, st->ssl_op.p);
-    while (rc == -1
+    while (rc <= 0
            && ssl_get_error(ssl, rc) == SSL_ERROR_WANT_WRITE) {
         if (buf) send_data(tls_state->me, buf);
 
@@ -203,7 +205,7 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
         rc = st->ssl_op.fn(tls_state, st->ssl_op.p);
     }
 
-    if (rc == 0) ssl_error();
+    if (rc <= 0) ssl_error();
 
     if (buf) {
         BIO_set_data(wbio, NULL);
@@ -262,53 +264,62 @@ static void start_ssl_op(struct tls_state *tls_state,
     run_ssl_op_wr(NULL, st);
 }
 
-static void cont_accept(struct buf *buf, void *p)
+static int do_connect(struct tls_state *tls_state, void *unused)
 {
-    struct tls_state *tls_state;
-    int rc;
-
-    tls_state = p;
-
-    BIO_set_data(tls_state->rbio, buf);
-
-    buf = get_buf();
-    BIO_set_data(tls_state->wbio, buf);
-
-    rc = SSL_accept(tls_state->ssl);
-    if (rc == 0 ||
-        (rc == -1
-         && ssl_get_error(tls_state->ssl, rc) != SSL_ERROR_WANT_READ))
-        ssl_error();
-
-    if (buf->e > buf->s) {
-        send_data(tls_state->me, buf);
-        BIUO_set_data(tls_state->wbio, NULL);
-
-        buf = get_buf();
-    }
-
-    want_data(tls_state->me,
-              rc == -1 ? cont_accept : ssl_read,
-              buf, tls_state);
+    (void)unused;
+    return SSL_connect(tls_state->ssl);
 }
 
-static void tls_client_start(struct tls_state *tls_state)
+static int do_read(struct tls_state *tls_state, void *p)
 {
     struct buf *buf;
     int rc;
 
+    buf = p;
+    rc = SSL_read(tls_state->ssl, buf->s, buf_data_sz);
+    if (rc <= 0) return rc;
+
+    buf->e = buf->s + rc;
+    return 1;
+}
+
+static void read_task(void *tls_state)
+{
+    start_read(tls_state, NULL);
+}
+
+static void do_send(struct tls_state *tls_state, void *p)
+{
+    send_data(tls_state->other, p);
+    queue_task(read_task, tls_state);
+}
+
+static void do_start_read(struct buf *buf, void *tls_state)
+{
+    start_ssl_op(tls_state,
+                 do_read, buf, do_send, buf);
+}
+
+static void start_read(struct tls_state *tls_state, void *unused)
+{
+    struct buf *buf;
+
+    (void)unused;
+
     buf = get_buf();
-    BIO_set_data(tls_state->wbio, buf);
+    if (!buf) {
+        want_buf(do_start_read, tls_state);
+        return;
+    }
 
-    rc = SSL_accept(tls_state->ssl);
-    if (!(rc == -1
-          && ssl_get_error(tls_state->ssl, rc) == SSL_ERROR_WANT_READ))
-        ssl_error();
+    do_start_read(buf, tls_state);
+}
 
-    send_data(tls_state->me, buf);
-
-    buf = get_buf();
-    want_data(tls_state->me, cont_accept, buf, tls_state);
+static void tls_client_start(struct tls_state *tls_state)
+{
+    start_ssl_op(tls_state,
+                 do_connect, NULL,
+                 start_read, NULL);
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
