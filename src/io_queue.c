@@ -9,6 +9,7 @@
 #include "diag.h"
 #include "io_queue.h"
 #include "loggers.h"
+#include "tasks.h"
 
 /*  constants */
 enum {
@@ -104,6 +105,8 @@ void run_io_loop(void)
 
                 cur = next;
             } while (cur);
+
+            run_tasks();
 
             --quota;
             cur = io_q.first;
