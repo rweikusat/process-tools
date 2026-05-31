@@ -39,6 +39,7 @@ static void start_ssl_op_wr(stuct buf *, void *);
 static void run_ssl_op_wr(struct buf *, void *);
 
 static void start_read(struct tls_state *, void *);
+static void other_read_task(void *);
 
 /*  variables */
 struct {
@@ -286,6 +287,60 @@ static int do_read(struct tls_state *tls_state, void *p)
 static void my_read_task(void *tls_state)
 {
     start_read(tls_state, NULL);
+}
+
+static void ssl_write_done(struct tls_state *tls_state, void *unused)
+{
+    (void)unused;
+    queue_task(other_read_task, tls_state);
+}
+
+static int do_ssl_write(struct tls_state *tls_state, void *p)
+{
+    struct buf *buf;
+    int rc;
+
+    buf = p;
+    do {
+        rc = SSL_write(tls_state->ssl, buf->s, buf->e - buf->s);
+        if (rc < 1) return rc;
+
+        buf->s += rc;
+    } while (buf->s < buf->e);
+
+    return_buf(buf);
+    return 1;
+}
+
+static void handle_other_input(struct buf *buf, void *p)
+{
+    start_ssl_op(p,
+                 do_ssl_write, buf,
+                 ssl_write_done, NULL);
+}
+
+static void other_got_buf(struct buf *buf, void *p)
+{
+    struct tls_state *tls_state;
+
+    tls_state = p;
+    want_data(tls_state->other, handle_other_input, buf, p);
+}
+
+static void other_read_task(void *p)
+{
+    struct tls_state *tls_state;
+    struct buf *buf;
+
+    tls_state = p;
+
+    buf = get_buf();
+    if (!buf) {
+        want_buf(tls_state->other, other_got_buf, p);
+        return;
+    }
+
+    other_got_buf(buf, tls_state);
 }
 
 static void do_my_send(struct tls_state *tls_state, void *p)
