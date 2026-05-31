@@ -409,7 +409,6 @@ static void tls_client_start(struct tls_state *tls_state)
                  start_first_reads, NULL);
 }
 
-
 void tls_client_init(struct pipe *me, struct pipe *other,
                      char *ca_path, char *ca_file,
                      struct tls_state *tls_state)
@@ -437,6 +436,19 @@ void tls_client_init(struct pipe *me, struct pipe *other,
 }
 
 /**  SSL server */
+static int do_accept(struct tls_state *tls_state, void *unused)
+{
+    (void)unused;
+    return SSL_accept(tls_state->ssl);
+}
+
+static void tls_server_start(struct tls_state *tls_state)
+{
+    start_ssl_op(tls_state,
+                 do_accept, NULL,
+                 start_first_reads, NULL);
+}
+
 void tls_server_init(struct pipe *me, struct pipe *other,
                      char *cert_file, char *key_file,
                      struct tls_state *tls_state)
