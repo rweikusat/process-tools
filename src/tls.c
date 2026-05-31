@@ -428,10 +428,37 @@ void tls_client_init(struct pipe *me, struct pipe *other,
     else rc = SSL_CTX_set_default_verify_file(ctx);
     if (!rc) ssl_error();
 
-    tls_state->ssl = SSL_new(tls_state->ctx);
+    tls_state->ssl = SSL_new(ctx);
     if (!tls_state->ssl) ssl_error();
     if (!getenv(NO_VERIFY)) SSL_set_verify(tls_state->ssl, SSL_VERIFY_PEER, NULL);
 
     tls_state->start = tls_client_start;
+    shared_tls_init(me, other, tls_state);
+}
+
+/**  SSL server */
+void tls_server_init(struct pipe *me, struct pipe *other,
+                     char *cert_file, char *key_file,
+                     struct tls_state *tls_state)
+{
+    SSL_CTX *ctx;
+    SSL *ssl;
+    int rc;
+
+    ctx = tls_state->ctx = SSL_CTX_new(TLS_server_method());
+    if (!ctx) ssl_error();
+
+    rc = SSL_CTX_use_certificate_chain_file(ctx, cert_file);
+    if (rc != 1) ssl_error();
+    rc = SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM);
+    if (rc != 1) ssl_error();
+    rc = SSL_CTX_check_PrivateKey(ctx);
+    if (rc != 1) ssl_error();
+
+    ssl = tls_state->ssl = SSL_new(ctx);
+    if (ssl) ssl_error();
+    SSL_set_verify(ssl, SSL_VERIFY_NONE, NULL);
+
+    tls_state=>start = tls_server_start;
     shared_tls_init(me, other, tls_state);
 }
