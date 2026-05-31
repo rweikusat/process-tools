@@ -50,6 +50,7 @@ struct {
 } ssl_op_states;
 
 /*  routines */
+/**  SSL error handling */
 static int log_ssl_error(char const *s, size_t len, void *p)
 {
     (void)len;
@@ -64,6 +65,7 @@ static void ssl_error(void)
     ERR_print_errors_cb(log_ssl_error, NULL);
 }
 
+/**  BIO methods */
 static int my_bio_write_ex(BIO *b, char const *d, size_t len, size_t *nw)
 {
     struct buf *buf;
@@ -138,6 +140,7 @@ static BIO_METHOD *my_bio_method(void)
     return meth;
 }
 
+/**  SSL op execution engine */
 static void run_ssl_op_rd(struct buf *buf, void *p)
 {
     struct ssl_op_state *st;
@@ -267,12 +270,7 @@ static void start_ssl_op(struct tls_state *tls_state,
     run_ssl_op_wr(NULL, st);
 }
 
-static int do_connect(struct tls_state *tls_state, void *unused)
-{
-    (void)unused;
-    return SSL_connect(tls_state->ssl);
-}
-
+/**  SSL incoming path */
 static int do_read(struct tls_state *tls_state, void *p)
 {
     struct buf *buf;
@@ -291,6 +289,34 @@ static void my_read_task(void *tls_state)
     start_read(tls_state, NULL);
 }
 
+static void do_my_send(struct tls_state *tls_state, void *p)
+{
+    send_data(tls_state->other, p);
+    queue_task(my_read_task, tls_state);
+}
+
+static void do_start_read(struct buf *buf, void *tls_state)
+{
+    start_ssl_op(tls_state,
+                 do_read, buf, do_my_send, buf);
+}
+
+static void start_read(struct tls_state *tls_state, void *unused)
+{
+    struct buf *buf;
+
+    (void)unused;
+
+    buf = get_buf();
+    if (!buf) {
+        want_buf(tls_state->me, do_start_read, tls_state);
+        return;
+    }
+
+    do_start_read(buf, tls_state);
+}
+
+/**  SSL outgoing path */
 static void ssl_write_done(struct tls_state *tls_state, void *unused)
 {
     (void)unused;
@@ -345,46 +371,13 @@ static void other_read_task(void *p)
     other_got_buf(buf, tls_state);
 }
 
-static void do_my_send(struct tls_state *tls_state, void *p)
-{
-    send_data(tls_state->other, p);
-    queue_task(my_read_task, tls_state);
-}
-
-static void do_start_read(struct buf *buf, void *tls_state)
-{
-    start_ssl_op(tls_state,
-                 do_read, buf, do_my_send, buf);
-}
-
-static void start_read(struct tls_state *tls_state, void *unused)
-{
-    struct buf *buf;
-
-    (void)unused;
-
-    buf = get_buf();
-    if (!buf) {
-        want_buf(tls_state->me, do_start_read, tls_state);
-        return;
-    }
-
-    do_start_read(buf, tls_state);
-}
-
+/**  SSL 'both' */
 static void start_first_reads(struct tls_state *tls_state, void *unused)
 {
     (void)unused;
 
     queue_task(my_read_task, tls_state);
     queue_task(other_read_task, tls_state);
-}
-
-static void tls_client_start(struct tls_state *tls_state)
-{
-    start_ssl_op(tls_state,
-                 do_connect, NULL,
-                 start_first_reads, NULL);
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
@@ -401,6 +394,21 @@ static void shared_tls_init(struct pipe *me, struct pipe *other,
 
     SSL_set_bio(tls_state->ssl, tls_state->rbio, tls_state->wbio);
 }
+
+/**  SSL client */
+static int do_connect(struct tls_state *tls_state, void *unused)
+{
+    (void)unused;
+    return SSL_connect(tls_state->ssl);
+}
+
+static void tls_client_start(struct tls_state *tls_state)
+{
+    start_ssl_op(tls_state,
+                 do_connect, NULL,
+                 start_first_reads, NULL);
+}
+
 
 void tls_client_init(struct pipe *me, struct pipe *other,
                      char *ca_path, char *ca_file,
