@@ -10,6 +10,8 @@
 
 #include "bufs.h"
 #include "diag.h"
+#include "pipe.h"
+#include "tasks.h"
 #include "tls.h"
 
 /*  macros */
@@ -35,7 +37,7 @@ struct ssl_op_state {
 
 /*  prototypes */
 static void start_ssl_op_rd(struct buf *, void *);
-static void start_ssl_op_wr(stuct buf *, void *);
+static void start_ssl_op_wr(struct buf *, void *);
 static void run_ssl_op_wr(struct buf *, void *);
 
 static void start_read(struct tls_state *, void *);
@@ -139,13 +141,14 @@ static BIO_METHOD *my_bio_method(void)
 static void run_ssl_op_rd(struct buf *buf, void *p)
 {
     struct ssl_op_state *st;
+    int rc;
 
     st = p;
-    BIO_set_data(st->tls_state.rbio, buf);
+    BIO_set_data(st->tls_state->rbio, buf);
     rc = st->ssl_op.fn(st->tls_state, st->ssl_op.p);
 
     if (rc <= 0) {
-        switch (ssl_get_errot(st->tls_state->ssl, rc)) {
+        switch (SSL_get_error(st->tls_state->ssl, rc)) {
         case SSL_ERROR_WANT_READ:
             start_ssl_op_rd(NULL, p);
             return;
@@ -193,7 +196,7 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
     if (buf) BIO_set_data(wbio, buf);
     rc = st->ssl_op.fn(tls_state, st->ssl_op.p);
     while (rc <= 0
-           && ssl_get_error(ssl, rc) == SSL_ERROR_WANT_WRITE) {
+           && SSL_get_error(ssl, rc) == SSL_ERROR_WANT_WRITE) {
         if (buf) send_data(tls_state->me, buf);
 
         buf = get_buf();
@@ -218,7 +221,7 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
     }
 
     if (rc == -1)
-        switch (ssl_get_error(ssl, rc)) {
+        switch (SSL_get_error(ssl, rc)) {
         case SSL_ERROR_WANT_READ:
             start_ssl_op_rd(buf, st);
             return;
@@ -233,7 +236,6 @@ static void run_ssl_op_wr(struct buf *buf, void *p)
 static void start_ssl_op_wr(struct buf *buf, void *p)
 {
     struct ssl_op_state *st;
-    struct buf *buf;
 
     if (!buf) {
         buf = get_buf();
@@ -260,7 +262,7 @@ static void start_ssl_op(struct tls_state *tls_state,
     st->ssl_op.fn = ssl_op;
     st->ssl_op.p = ssl_op_p;
     st->cont.fn = cont;
-    st->cont.p = cont-p;
+    st->cont.p = cont_p;
 
     run_ssl_op_wr(NULL, st);
 }
@@ -363,7 +365,7 @@ static void start_read(struct tls_state *tls_state, void *unused)
 
     buf = get_buf();
     if (!buf) {
-        want_buf(do_start_read, tls_state);
+        want_buf(tls_state->me, do_start_read, tls_state);
         return;
     }
 

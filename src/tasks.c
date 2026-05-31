@@ -3,6 +3,8 @@
 */
 
 /*  include */
+#include <stddef.h>
+
 #include "tasks.h"
 
 /*  types */
@@ -27,7 +29,7 @@ void queue_task(task_fn *fn, void *p)
 {
     struct task *tsk;
 
-    tsk = tsks + nxt_tst;
+    tsk = tsks + nxt_tsk;
     nxt_tsk ^= 1;
 
     tsk->fn = fn;

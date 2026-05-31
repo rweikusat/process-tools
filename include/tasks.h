@@ -8,7 +8,7 @@
 typedef void task_fn(void *);
 
 /*  routines */
-void queue_task(task_fn *p, void *p);
+void queue_task(task_fn *fn, void *p);
 void run_tasks();
 
 #endif
