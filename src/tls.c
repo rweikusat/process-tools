@@ -283,21 +283,21 @@ static int do_read(struct tls_state *tls_state, void *p)
     return 1;
 }
 
-static void read_task(void *tls_state)
+static void my_read_task(void *tls_state)
 {
     start_read(tls_state, NULL);
 }
 
-static void do_send(struct tls_state *tls_state, void *p)
+static void do_my_send(struct tls_state *tls_state, void *p)
 {
     send_data(tls_state->other, p);
-    queue_task(read_task, tls_state);
+    queue_task(my_read_task, tls_state);
 }
 
 static void do_start_read(struct buf *buf, void *tls_state)
 {
     start_ssl_op(tls_state,
-                 do_read, buf, do_send, buf);
+                 do_read, buf, do_my_send, buf);
 }
 
 static void start_read(struct tls_state *tls_state, void *unused)
@@ -315,11 +315,19 @@ static void start_read(struct tls_state *tls_state, void *unused)
     do_start_read(buf, tls_state);
 }
 
+static void start_first_reads(struct tls_state *tls_state, void *unused)
+{
+    (void)unused;
+
+    queue_task(my_read_task, tls_state);
+    queue_task(other_read_task, tls_state);
+}
+
 static void tls_client_start(struct tls_state *tls_state)
 {
     start_ssl_op(tls_state,
                  do_connect, NULL,
-                 start_read, NULL);
+                 start_first_reads, NULL);
 }
 
 static void shared_tls_init(struct pipe *me, struct pipe *other,
